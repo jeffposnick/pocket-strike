@@ -13,6 +13,7 @@ import { buzz, Sfx } from './audio.ts';
 import {
   BALL_R,
   BALL_START_Y,
+  HEAD_Y as PIN_HEAD_Y,
   boardAt,
   DECK_Y,
   LANE_HALF,
@@ -24,8 +25,12 @@ import {
   WALL_X,
 } from './constants.ts';
 import type { Hud } from './hud.ts';
+import { Run, pinInfo, POWERS } from './run.ts';
 import { isSplit, provisionalTotal, scoreFrames } from './scoring.ts';
-import { Sim } from './sim.ts';
+import { BOMB_RADIUS, DEFAULT_MODS, NO_POWERS, Sim } from './sim.ts';
+import type { PinKind, PowerId } from './sim.ts';
+
+export type Mode = 'classic' | 'run';
 
 type Phase = 'menu' | 'aim' | 'roll' | 'result' | 'sweep' | 'return' | 'over';
 
@@ -83,6 +88,7 @@ export class Lanes extends ex.Scene {
   private readonly pinActors: ex.Actor[] = [];
   private readonly standingGfx = makeStandingPin();
   private readonly fallenGfx = makeFallenPin();
+  private readonly specialGfx = new Map<PinKind, { standing: ex.Canvas; fallen: ex.Canvas }>();
   private readonly ball = new ex.Actor({ z: 5 });
   private readonly ballGloss = new ex.Actor({ z: 5.1 });
   private readonly ballShadow = new ex.Actor({ z: 3 });
@@ -102,6 +108,12 @@ export class Lanes extends ex.Scene {
   private bumpers = false;
   private style: BallStyle | null = null;
   private throws = 0;
+  private mode: Mode = 'classic';
+  private run: Run | null = null;
+  private ballPowers: PowerId[] = [];
+  private ballSpecials = 0;
+  private stageOver = false;
+  private bestRun = 0;
 
   // Presentation
   private camY = 0;
@@ -122,6 +134,9 @@ export class Lanes extends ex.Scene {
   private fingerTrail: Sample[] = [];
   private fingerFade = 0;
   private best = 0;
+  private zapBolts: { pts: { x: number; y: number }[]; t: number }[] = [];
+  private rings: { x: number; y: number; t: number }[] = [];
+  private flames: Spark[] = [];
 
   private readonly hud: Hud;
 
@@ -138,6 +153,10 @@ export class Lanes extends ex.Scene {
       this.pinActors.push(a);
       this.add(a);
     }
+    for (const kind of ['gold', 'fire', 'bomb', 'chain', 'mega', 'homing', 'rails'] as PinKind[]) {
+      const info = pinInfo(kind)!;
+      this.specialGfx.set(kind, { standing: makeStandingPin(info.color), fallen: makeFallenPin(info.color) });
+    }
     this.ballShadow.graphics.use(makeBallShadow());
     this.ballGloss.graphics.use(makeBallGloss());
     this.add(this.ballShadow);
@@ -146,6 +165,7 @@ export class Lanes extends ex.Scene {
 
     try {
       this.best = Number(localStorage.getItem('ps-best') ?? 0) || 0;
+      this.bestRun = Number(localStorage.getItem('ps-best-run') ?? 0) || 0;
     } catch {
       /* ignore */
     }
@@ -175,14 +195,20 @@ export class Lanes extends ex.Scene {
     this.gesture = null;
     this.hud.hint(false);
     this.hud.setBoardNumber(null);
-    this.hud.showMenu(this.best, (style, bumpers) => this.newGame(style, bumpers));
+    this.hud.showMenu(this.best, this.bestRun, (style, bumpers, mode) => this.newGame(style, bumpers, mode));
   }
 
-  private newGame(style: BallStyle, bumpers: boolean): void {
+  private newGame(style: BallStyle, bumpers: boolean, mode: Mode = this.mode): void {
     if (style !== this.style) this.ball.graphics.use(makeBall(style));
     this.style = style;
-    this.bumpers = bumpers;
-    this.sim.bumpers = bumpers;
+    this.mode = mode;
+    this.bumpers = mode === 'classic' && bumpers;
+    this.sim.bumpers = this.bumpers;
+    this.sim.powers = { ...NO_POWERS };
+    this.sim.mods = { ...DEFAULT_MODS };
+    this.run = mode === 'run' ? new Run() : null;
+    this.stageOver = false;
+    this.hud.setMode(mode);
     this.frame = 0;
     this.ballInFrame = 0;
     this.rolls = [];
@@ -193,6 +219,7 @@ export class Lanes extends ex.Scene {
     this.spares = 0;
     this.gameOver = false;
     this.sim.resetRack();
+    this.applySpecials();
     this.rackDrop = 0;
     this.lastX = 0;
     this.sim.placeBall(this.lastX);
@@ -201,19 +228,135 @@ export class Lanes extends ex.Scene {
     this.trail = [];
     this.refreshHud();
     this.hud.hideThrow();
+    if (this.run) this.startStage();
     this.beginAim();
+  }
+
+  // ---- Roguelike run --------------------------------------------------------
+
+  private startStage(): void {
+    const run = this.run!;
+    this.sim.mods = run.mods();
+    this.stageOver = false;
+    if (run.has('surge')) {
+      for (let i = 0; i < run.has('surge'); i++) {
+        if (run.inventory.length < run.slots) run.inventory.push(run.randomPower());
+      }
+    }
+    const st = run.stageInfo;
+    if (st.boss) this.hud.banner('BOSS LANE', `${st.name}: ${st.boss}`, 'split', 2600);
+    else this.hud.banner(`STAGE ${run.stage + 1}`, `${st.name} · Score ${st.target} to advance`, 'plain', 2200);
+    this.refreshHud();
+  }
+
+  /** Marks the special pins in a fresh rack (classic mode has none). */
+  private applySpecials(): void {
+    for (const p of this.sim.pins) p.kind = 'normal';
+    if (!this.run) return;
+    for (const [id, kind] of this.run.rollSpecials()) this.sim.pins[id - 1].kind = kind;
+    this.hud.setRack(this.sim.standing().map((p) => p.id), this.rackColors());
+  }
+
+  private rackColors(): Map<number, string> {
+    const m = new Map<number, string>();
+    for (const p of this.sim.pins) {
+      if (p.kind !== 'normal' && p.state === 'standing') m.set(p.id, pinInfo(p.kind)!.color);
+    }
+    return m;
+  }
+
+  private toggleArm(i: number): void {
+    const run = this.run;
+    if (!run || this.phase !== 'aim' || i >= run.inventory.length) return;
+    if (run.armed.has(i)) run.armed.delete(i);
+    else run.armed.add(i);
+    this.sfx.tick();
+    this.hud.renderInventory(run, (k) => this.toggleArm(k));
+    this.syncBallSize();
+  }
+
+  /** Previews Mega Ball while it's armed. */
+  private syncBallSize(): void {
+    const run = this.run;
+    const megaArmed = !!run && [...run.armed].some((i) => run.inventory[i] === 'mega');
+    if (this.phase === 'aim') this.sim.powers = { ...NO_POWERS, mega: megaArmed };
+  }
+
+  private endStage(): void {
+    const run = this.run!;
+    if (!run.cleared) {
+      this.runOver(false);
+      return;
+    }
+    if (run.isFinalStage) {
+      this.runOver(true);
+      return;
+    }
+    this.hud.hideThrow();
+    const reward = run.stageReward();
+    for (const r of reward) run.coins += r.coins;
+    this.phase = 'over';
+    this.sfx.fanfare(1);
+    this.burstConfetti(120);
+    this.hud.showShop(run, reward, () => {
+      run.nextStage();
+      this.frame = 0;
+      this.ballInFrame = 0;
+      this.standingBefore = 10;
+      this.sim.clearDeadwood();
+      this.sim.resetRack();
+      this.applySpecials();
+      this.rackDrop = 0;
+      this.startStage();
+      this.returnFrom = this.camY;
+      this.sim.placeBall(this.lastX);
+      this.setPhase('return', 850);
+    }, () => this.sfx.chime());
+  }
+
+  private runOver(victory: boolean): void {
+    const run = this.run!;
+    this.phase = 'over';
+    const reached = run.stage + (victory ? 1 : 0);
+    const newBest = reached > this.bestRun || (victory && reached === this.bestRun);
+    if (reached > this.bestRun) {
+      this.bestRun = reached;
+      try {
+        localStorage.setItem('ps-best-run', String(reached));
+      } catch {
+        /* ignore */
+      }
+    }
+    if (victory) {
+      this.burstConfetti(300);
+      this.sfx.fanfare(2);
+    } else {
+      this.sfx.womp();
+    }
+    this.hud.hideThrow();
+    this.hud.showRunOver(run, victory, newBest, () => this.newGameSame(), () => this.openMenu());
   }
 
   private beginAim(): void {
     this.phase = 'aim';
-    this.hud.setStatus(`Frame ${this.frame + 1} · Ball ${this.ballInFrame + 1}`);
+    const frames = this.run ? `/${this.run.framesPerStage}` : '';
+    this.hud.setStatus(`Frame ${this.frame + 1}${frames} · Ball ${this.ballInFrame + 1}`);
+    // Safety Net perk: bumpers for every spare attempt.
+    if (this.run) this.sim.bumpers = this.run.has('safety') > 0 && this.standingBefore < 10;
+    this.syncBallSize();
     if (this.throws < 2) this.hud.hint(true, 300);
   }
 
   private refreshHud(): void {
-    this.hud.renderBoard(scoreFrames(this.rolls), this.gameOver ? -1 : this.frame);
-    this.hud.setScore(provisionalTotal(this.rolls));
-    this.hud.setRack(this.sim.standing().map((p) => p.id));
+    if (this.run) {
+      this.hud.renderRun(this.run, this.frame);
+      this.hud.renderInventory(this.run, (k) => this.toggleArm(k));
+      this.hud.setScore(this.run.totalScore);
+    } else {
+      this.hud.renderBoard(scoreFrames(this.rolls), this.gameOver ? -1 : this.frame);
+      this.hud.setScore(provisionalTotal(this.rolls));
+    }
+    this.hud.setRack(this.sim.standing().map((p) => p.id), this.rackColors());
   }
 
   // ---- Input ------------------------------------------------------------------
@@ -301,6 +444,23 @@ export class Lanes extends ex.Scene {
 
   private throwBall(speed: number, angle: number, spin: number): void {
     this.lastX = this.sim.ball.x;
+    this.ballPowers = this.run ? this.run.consumeArmed() : [];
+    this.ballSpecials = 0;
+    const has = (p: PowerId) => this.ballPowers.includes(p);
+    this.sim.powers = { fire: has('fire'), bomb: has('bomb'), chain: has('chain'), mega: has('mega'), homing: has('homing') };
+    if (has('rails')) this.sim.bumpers = true;
+    const standing = this.sim.standing();
+    if (standing.length >= 9 || standing.length === 0) {
+      this.sim.homingX = spin > 0.05 ? -24 : 24;
+    } else {
+      this.sim.homingX = standing.reduce((a, p) => a + p.x, 0) / standing.length;
+    }
+    if (this.ballPowers.length) {
+      const names = this.ballPowers.map((p) => `${POWERS[p].icon} ${POWERS[p].name}`).join(' + ');
+      this.hud.banner('POWER UP!', names, 'spare', 1100);
+      this.sfx.chime();
+      if (this.run) this.hud.renderInventory(this.run, (k) => this.toggleArm(k));
+    }
     this.sim.launch(speed, angle, spin);
     this.phase = 'roll';
     this.throws++;
@@ -365,9 +525,27 @@ export class Lanes extends ex.Scene {
       }
     }
 
+    if (this.run) {
+      const strike = fullRack && knocked === 10;
+      const spare = !fullRack && standing.length === 0;
+      const pts = this.run.points(knocked, strike, spare, this.streak, this.ballSpecials);
+      this.run.addPoints(pts.total);
+      if (strike) this.run.strikes++;
+      if (spare) this.run.spares++;
+      this.hud.points(pts);
+    }
+
     // Advance the frame.
     this.resetAfter = false;
-    if (this.frame < 9) {
+    if (this.run) {
+      if ((this.ballInFrame === 0 && knocked === 10) || this.ballInFrame === 1) {
+        this.nextFrame();
+        this.run.frameInStage = this.frame;
+        if (this.frame >= this.run.framesPerStage) this.stageOver = true;
+      } else {
+        this.ballInFrame = 1;
+      }
+    } else if (this.frame < 9) {
       if (this.ballInFrame === 0 && knocked === 10) this.nextFrame();
       else if (this.ballInFrame === 0) this.ballInFrame = 1;
       else this.nextFrame();
@@ -509,6 +687,41 @@ export class Lanes extends ex.Scene {
         case 'pit':
           this.sfx.thump(0.25);
           break;
+        case 'pinDown':
+          if (this.run && e.kind !== 'normal') {
+            const label = this.run.collect(e.kind);
+            this.ballSpecials++;
+            const info = pinInfo(e.kind)!;
+            const page = this.engine.screen.worldToPageCoordinates(ex.vec(e.x, e.y));
+            this.hud.floatText(label, page.x, page.y, info.color);
+            this.hud.renderInventory(this.run, (k) => this.toggleArm(k));
+            this.hud.renderRun(this.run, this.frame);
+            this.sfx.collect();
+            this.spawnSparks(e.x, e.y, 700, false);
+          }
+          break;
+        case 'bomb':
+          this.rings.push({ x: e.x, y: e.y, t: 0 });
+          this.shake = Math.max(this.shake, 24);
+          this.hitStop = Math.max(this.hitStop, 0.09);
+          this.hud.flash('rgba(255,140,60,0.7)');
+          this.sfx.boom();
+          this.spawnSparks(e.x, e.y, 1800, false);
+          this.spawnSparks(e.x, e.y, 1200, true);
+          buzz([60, 30, 80]);
+          break;
+        case 'zap': {
+          const pts = [{ x: e.x1, y: e.y1 }];
+          for (let k = 1; k < 7; k++) {
+            const t = k / 7;
+            pts.push({ x: e.x1 + (e.x2 - e.x1) * t + rand(-14, 14), y: e.y1 + (e.y2 - e.y1) * t + rand(-14, 14) });
+          }
+          pts.push({ x: e.x2, y: e.y2 });
+          this.zapBolts.push({ pts, t: 0 });
+          this.sfx.zap();
+          this.shake = Math.max(this.shake, 6);
+          break;
+        }
       }
     }
     this.sim.events = [];
@@ -584,6 +797,7 @@ export class Lanes extends ex.Scene {
         this.camY += (this.deckCamY() - this.camY) * (1 - Math.exp(-6 * dt));
         if (this.phaseT >= this.phaseDur) {
           if (this.gameOver) this.endGame();
+          else if (this.stageOver) this.endStage();
           else {
             this.setPhase('sweep', 1000);
             this.sweepCleared = false;
@@ -624,6 +838,45 @@ export class Lanes extends ex.Scene {
       s.vy *= Math.exp(-4 * dt);
     }
     this.sparks = this.sparks.filter((s) => s.life < s.max);
+    for (const p of this.sim.pins) {
+      if (p.burning && (p.state === 'down' || p.state === 'standing') && Math.random() < 0.6) {
+        this.flames.push({
+          x: p.x + rand(-20, 20),
+          y: p.y + rand(-14, 14),
+          vx: rand(-20, 20),
+          vy: rand(-60, -20),
+          life: 0,
+          max: rand(0.25, 0.5),
+          size: rand(3, 7),
+          color: ex.Color.fromHex(Math.random() < 0.5 ? '#ff7a2b' : '#ffd166'),
+        });
+      }
+    }
+    const b0 = this.sim.ball;
+    if (this.sim.powers.fire && b0.rolling && !b0.inPit) {
+      for (let k = 0; k < 3; k++) {
+        this.flames.push({
+          x: b0.x + rand(-18, 18),
+          y: b0.y + rand(0, 30),
+          vx: rand(-30, 30),
+          vy: rand(40, 120),
+          life: 0,
+          max: rand(0.2, 0.45),
+          size: rand(4, 9),
+          color: ex.Color.fromHex(Math.random() < 0.5 ? '#ff5a1f' : '#ffc84a'),
+        });
+      }
+    }
+    for (const f of this.flames) {
+      f.life += dt;
+      f.x += f.vx * dt;
+      f.y += f.vy * dt;
+    }
+    this.flames = this.flames.filter((f) => f.life < f.max);
+    for (const z of this.zapBolts) z.t += dt;
+    this.zapBolts = this.zapBolts.filter((z) => z.t < 0.35);
+    for (const r of this.rings) r.t += dt;
+    this.rings = this.rings.filter((r) => r.t < 0.5);
     for (const c of this.confetti) {
       c.life -= dt;
       c.vy += 60 * dt;
@@ -667,9 +920,10 @@ export class Lanes extends ex.Scene {
         this.sim.clearDeadwood();
         if (this.resetAfter) {
           this.sim.resetRack();
+          this.applySpecials();
           this.rackDrop = 0;
         }
-        this.hud.setRack(this.sim.standing().map((p) => p.id));
+        this.hud.setRack(this.sim.standing().map((p) => p.id), this.rackColors());
       }
     }
   }
@@ -693,18 +947,20 @@ export class Lanes extends ex.Scene {
         return;
       }
       a.graphics.isVisible = true;
+      const special = p.kind !== 'normal' ? this.specialGfx.get(p.kind) : undefined;
       if (p.state === 'standing') {
-        a.graphics.use(this.standingGfx);
+        a.graphics.use(special?.standing ?? this.standingGfx);
         a.z = 6;
         const wob = p.wobble;
         const drop = 1 - this.rackDrop;
         a.pos = ex.vec(p.x + Math.sin(time * 34 + p.id) * wob * 3.2, p.y + Math.cos(time * 29 + p.id) * wob * 2.4);
-        const sc = 1 + wob * 0.05 + lift * 0.16 + drop * 0.45;
+        const pulse = special ? Math.sin(time * 5 + p.id) * 0.06 : 0;
+        const sc = 1 + pulse + wob * 0.05 + lift * 0.16 + drop * 0.45;
         a.scale = ex.vec(sc, sc);
         a.rotation = 0;
         a.graphics.opacity = 1 - drop * 0.9 - lift * 0.15;
       } else {
-        a.graphics.use(this.fallenGfx);
+        a.graphics.use(special?.fallen ?? this.fallenGfx);
         a.z = 4;
         a.pos = ex.vec(p.x, p.y);
         a.rotation = p.angle;
@@ -721,7 +977,7 @@ export class Lanes extends ex.Scene {
     });
 
     const b = this.sim.ball;
-    let scale = b.gutter ? 0.86 : 1;
+    let scale = (b.gutter ? 0.86 : 1) * (this.sim.ballR / BALL_R);
     let opacity = 1;
     if (b.inPit) {
       const k = Math.min(1, b.pitT / 0.3);
@@ -748,11 +1004,20 @@ export class Lanes extends ex.Scene {
     ctx.translate(ox, oy);
 
     // Aim guide: a faint line up the board you're standing on.
+    if (this.sim.bumpers && this.phase !== 'menu') {
+      for (const sgn of [-1, 1]) {
+        const x = sgn * (LANE_HALF - 2);
+        ctx.drawRectangle(ex.vec(x - 3, DECK_Y), 6, -DECK_Y, ex.Color.fromRGB(125, 255, 155, 0.25));
+        ctx.drawRectangle(ex.vec(x - 1, DECK_Y), 2, -DECK_Y, ex.Color.fromHex('#7dff9b'));
+      }
+    }
+
     if (this.phase === 'aim') {
       const b = this.sim.ball;
       const pulse = 0.18 + 0.1 * Math.sin(performance.now() / 300);
-      for (let y = b.y - BALL_R - 20; y > b.y - 760; y -= 26) {
-        const fade = 1 - (b.y - y) / 760;
+      const reach = this.run?.has('laser') ? b.y - DECK_Y + 60 : 760;
+      for (let y = b.y - BALL_R - 20; y > b.y - reach; y -= 26) {
+        const fade = this.run?.has('laser') ? 0.8 : 1 - (b.y - y) / reach;
         ctx.drawRectangle(ex.vec(b.x - 1.5, y), 3, 12, ex.Color.fromRGB(255, 255, 255, pulse * fade));
       }
     }
@@ -762,7 +1027,8 @@ export class Lanes extends ex.Scene {
       const a = this.trail[i - 1];
       const b = this.trail[i];
       const k = i / this.trail.length;
-      ctx.drawLine(ex.vec(a.x, a.y), ex.vec(b.x, b.y), ex.Color.fromRGB(56, 243, 255, 0.16 * k), BALL_R * 2 * (0.4 + 0.6 * k));
+      const tc = this.sim.powers.fire ? [255, 120, 40] : this.sim.powers.homing ? [180, 124, 255] : [56, 243, 255];
+      ctx.drawLine(ex.vec(a.x, a.y), ex.vec(b.x, b.y), ex.Color.fromRGB(tc[0], tc[1], tc[2], 0.16 * k), this.sim.ballR * 2 * (0.4 + 0.6 * k));
       ctx.drawLine(ex.vec(a.x, a.y), ex.vec(b.x, b.y), ex.Color.fromRGB(255, 255, 255, 0.35 * k), 4 * k);
     }
 
@@ -787,6 +1053,34 @@ export class Lanes extends ex.Scene {
       ctx.drawRectangle(ex.vec(-WALL_X - 12, y - 16), (WALL_X + 12) * 2, 32, ex.Color.fromHex('#141032'));
       ctx.drawRectangle(ex.vec(-WALL_X - 12, y + 12), (WALL_X + 12) * 2, 4, ex.Color.fromHex(NEON.amber));
       ctx.drawRectangle(ex.vec(-WALL_X - 12, y + 16), (WALL_X + 12) * 2, 10, ex.Color.fromRGB(255, 200, 74, 0.18));
+    }
+
+    if (this.sim.powers.homing && this.phase === 'roll') {
+      const pulse = 1 + 0.15 * Math.sin(performance.now() / 120);
+      const pos = ex.vec(this.sim.homingX, PIN_HEAD_Y + 40);
+      ctx.drawCircle(pos, 26 * pulse, ex.Color.Transparent, ex.Color.fromHex('#b47cff'), 3);
+      ctx.drawCircle(pos, 6, ex.Color.fromHex('#b47cff'));
+    }
+
+    for (const r of this.rings) {
+      const k = r.t / 0.5;
+      ctx.drawCircle(ex.vec(r.x, r.y), BOMB_RADIUS * (0.3 + 0.9 * k), ex.Color.fromRGB(255, 160, 60, 0.45 * (1 - k)), ex.Color.fromRGB(255, 240, 200, 1 - k), 6);
+    }
+
+    for (const f of this.flames) {
+      const c = f.color.clone();
+      c.a = 0.9 * (1 - f.life / f.max);
+      ctx.drawCircle(ex.vec(f.x, f.y), f.size * (1 - f.life / f.max * 0.5), c);
+    }
+
+    for (const z of this.zapBolts) {
+      const a = 1 - z.t / 0.35;
+      for (let i = 1; i < z.pts.length; i++) {
+        const p0 = ex.vec(z.pts[i - 1].x, z.pts[i - 1].y);
+        const p1 = ex.vec(z.pts[i].x, z.pts[i].y);
+        ctx.drawLine(p0, p1, ex.Color.fromRGB(56, 243, 255, 0.35 * a), 10);
+        ctx.drawLine(p0, p1, ex.Color.fromRGB(255, 255, 255, a), 3);
+      }
     }
 
     for (const s of this.sparks) {

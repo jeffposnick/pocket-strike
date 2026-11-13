@@ -368,8 +368,8 @@ function pinProfilePath(ctx: CanvasRenderingContext2D, x: number, y: number, len
   ctx.closePath();
 }
 
-/** Pin seen from above while standing. */
-export function makeStandingPin(): ex.Canvas {
+/** Pin seen from above while standing. `accent` marks a special pin. */
+export function makeStandingPin(accent?: string): ex.Canvas {
   const size = 56;
   const c = size / 2;
   return new ex.Canvas({
@@ -378,6 +378,15 @@ export function makeStandingPin(): ex.Canvas {
     cache: true,
     draw: (ctx) => {
       ctx.clearRect(0, 0, size, size);
+      if (accent) {
+        const halo = ctx.createRadialGradient(c, c, PIN_R * 0.8, c, c, c);
+        halo.addColorStop(0, accent);
+        halo.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = halo;
+        ctx.fillRect(0, 0, size, size);
+        ctx.globalAlpha = 1;
+      }
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,0.45)';
       ctx.shadowBlur = 7;
@@ -393,12 +402,12 @@ export function makeStandingPin(): ex.Canvas {
       ctx.fill();
       ctx.restore();
       // Red neck stripes seen from above.
-      ctx.strokeStyle = '#e8203f';
-      ctx.lineWidth = 2.6;
+      ctx.strokeStyle = accent ?? '#e8203f';
+      ctx.lineWidth = accent ? 3.4 : 2.6;
       ctx.beginPath();
       ctx.arc(c, c, 10.5, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(232,32,63,0.55)';
+      ctx.strokeStyle = accent ?? 'rgba(232,32,63,0.55)';
       ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.arc(c, c, 13.2, 0, Math.PI * 2);
@@ -406,7 +415,7 @@ export function makeStandingPin(): ex.Canvas {
       // Head.
       const hg = ctx.createRadialGradient(c - 2.5, c - 3, 0.5, c, c, 8);
       hg.addColorStop(0, '#ffffff');
-      hg.addColorStop(1, '#dcd8e8');
+      hg.addColorStop(1, accent ?? '#dcd8e8');
       ctx.fillStyle = hg;
       ctx.beginPath();
       ctx.arc(c, c, 7.5, 0, Math.PI * 2);
@@ -420,7 +429,7 @@ export function makeStandingPin(): ex.Canvas {
 }
 
 /** Pin lying on its side, head pointing toward +x. */
-export function makeFallenPin(): ex.Canvas {
+export function makeFallenPin(accent?: string): ex.Canvas {
   const wdt = PIN_LEN + 24;
   const hgt = PIN_R * 2 + 22;
   const x0 = 12;
@@ -432,10 +441,10 @@ export function makeFallenPin(): ex.Canvas {
     draw: (ctx) => {
       ctx.clearRect(0, 0, wdt, hgt);
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.45)';
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 3;
-      ctx.shadowOffsetY = 5;
+      ctx.shadowColor = accent ?? 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = accent ? 12 : 6;
+      ctx.shadowOffsetX = accent ? 0 : 3;
+      ctx.shadowOffsetY = accent ? 0 : 5;
       const g = ctx.createLinearGradient(0, cy - PIN_R, 0, cy + PIN_R);
       g.addColorStop(0, '#ffffff');
       g.addColorStop(0.35, '#f6f4fb');
@@ -447,7 +456,7 @@ export function makeFallenPin(): ex.Canvas {
       ctx.save();
       pinProfilePath(ctx, x0, cy, PIN_LEN);
       ctx.clip();
-      ctx.fillStyle = '#e8203f';
+      ctx.fillStyle = accent ?? '#e8203f';
       ctx.fillRect(x0 + PIN_LEN * 0.6, 0, PIN_LEN * 0.035, hgt);
       ctx.fillRect(x0 + PIN_LEN * 0.665, 0, PIN_LEN * 0.035, hgt);
       ctx.fillStyle = 'rgba(255,255,255,0.7)';

@@ -13,6 +13,26 @@ Top-down neon lanes, real pin action, ten-frame scoring.
 - **Bumpers** mode (menu) blocks the gutters.
 - Tap during the replay to hurry along to your next ball.
 
+## Neon Run (roguelike mode)
+
+Six lanes, three frames each. Score enough points on each lane to move on. Points are
+**pins × mult**: 10 per pin (+15 per special pin). Strikes add +1 mult and spares +0.5.
+
+- **Special pins** glow in the rack (and on the rack diagram). Knock one down to bank it:
+  - 🔥 **Fireball**: plows through; burning pins topple anything they touch
+  - 💣 **Bomb**: explodes on first contact
+  - ⚡ **Chain Lightning**: each falling pin zaps its nearest neighbour (up to 3)
+  - 🌕 **Mega Ball**: huge, heavy ball for one throw
+  - 🎯 **Homing**: steers into the pocket, or toward the pins left for a spare
+  - 🛡️ **Guard Rails**: bumpers for one throw
+  - 🪙 **Gold**: a coin
+- **Tap a power-up slot** to arm it before you throw. You can arm several at once.
+- **After each lane:** pick one of three perks (Heavy Ball, Domino Effect, Hot Hand, Laser Sight and more),
+  buy power-ups with coins, or reroll the perk offers.
+- **Boss lanes:** Slick Lane (hook halved) and Iron Pins (pins 35% harder to topple).
+
+Stage targets were tuned by simulating hundreds of full runs with simulated players of different skill.
+
 ## Features
 
 - Custom rigid-body physics: fallen pins collide as long tumbling bodies, so pins take out other pins.
@@ -36,6 +56,7 @@ npm run build      # type-check + production build into dist/
 | `src/lanes.ts` | The game scene: gestures, turn flow, camera, effects |
 | `src/art.ts` | All procedural artwork: lane tiles, pins, ball |
 | `src/scoring.ts` | Ten-pin scoring and split detection |
+| `src/run.ts` | Roguelike run: stages, perks, power-ups, points, shop offers |
 | `src/audio.ts` | Web Audio sound effects |
 | `src/hud.ts` | HTML overlay: scoreboard, rack diagram, banners, menus |
 | `src/constants.ts` | Lane geometry and tuning |

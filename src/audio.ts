@@ -209,6 +209,69 @@ export class Sfx {
     n.start(now, 0, 0.45);
   }
 
+  /** Sparkly pickup for special pins. */
+  collect(): void {
+    const c = this.ctx;
+    if (!c || !this.master) return;
+    [880, 1318.5, 1760].forEach((f, i) => {
+      const t = c.currentTime + i * 0.05;
+      const o = c.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = f;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+      o.connect(g).connect(this.master!);
+      o.start(t);
+      o.stop(t + 0.3);
+    });
+  }
+
+  boom(): void {
+    const c = this.ctx;
+    if (!c || !this.noise || !this.master) return;
+    const now = c.currentTime;
+    const n = c.createBufferSource();
+    n.buffer = this.noise;
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(2200, now);
+    f.frequency.exponentialRampToValueAtTime(120, now + 0.8);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1.0, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+    n.connect(f).connect(g).connect(this.master);
+    n.start(now, 0, 0.95);
+    this.thump(1);
+  }
+
+  zap(): void {
+    const c = this.ctx;
+    if (!c || !this.noise || !this.master) return;
+    const now = c.currentTime;
+    const o = c.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(1800, now);
+    o.frequency.exponentialRampToValueAtTime(240, now + 0.18);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.12, now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    o.connect(g).connect(this.master);
+    o.start(now);
+    o.stop(now + 0.22);
+    const n = c.createBufferSource();
+    n.buffer = this.noise;
+    const hp = c.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 3000;
+    const ng = c.createGain();
+    ng.gain.setValueAtTime(0.3, now);
+    ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+    n.connect(hp).connect(ng).connect(this.master);
+    n.start(now, Math.random() * 0.5, 0.2);
+  }
+
   tick(): void {
     const c = this.ctx;
     if (!c || !this.master) return;

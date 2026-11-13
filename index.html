@@ -23,6 +23,11 @@
     <div id="hud">
       <header>
         <div id="board" aria-label="Scoreboard"></div>
+        <div id="runbar">
+          <div class="rtop"><span id="stageName">Stage 1</span><span id="coins">🪙 0</span></div>
+          <div class="prog"><div id="progFill"></div><span id="progText">0 / 160</span></div>
+          <div class="rbot"><span id="frameDots"></span><span id="perkRow"></span></div>
+        </div>
         <div class="row">
           <div id="rack" aria-label="Pins standing"></div>
           <div class="mid">
@@ -42,6 +47,13 @@
       <div id="banner">
         <div id="bannerText">STRIKE!</div>
         <div id="bannerSub"></div>
+        <div id="points"></div>
+      </div>
+      <div id="floats"></div>
+
+      <div id="invWrap">
+        <div id="invLabel"></div>
+        <div id="inv"></div>
       </div>
 
       <div id="hint">
@@ -54,11 +66,13 @@
     <div id="menu" class="overlay" hidden>
       <div class="card">
         <div class="logo"><span>POCKET</span><span>STRIKE</span></div>
-        <p class="tag">Neon lanes. Ten frames. Find the pocket.</p>
+        <p class="tag">Neon lanes. Glowing pins. Find the pocket.</p>
         <div class="label">Pick your ball</div>
         <div id="balls"></div>
-        <label class="toggle"><input type="checkbox" id="bumpers" /><span></span>Bumpers (no gutter balls)</label>
-        <button id="play" class="cta">Bowl!</button>
+        <button id="playRun" class="cta">Neon Run</button>
+        <p class="modeNote">Roguelike: 6 lanes, power-up pins, perks and boss lanes.</p>
+        <button id="play" class="ghost">Classic 10 frames</button>
+        <label class="toggle"><input type="checkbox" id="bumpers" /><span></span>Bumpers in Classic</label>
         <ul class="how">
           <li><b>Slide</b> your finger sideways to line up the ball.</li>
           <li><b>Flick up</b>: a faster flick means a faster ball.</li>
@@ -77,6 +91,34 @@
         <div id="finalBest"></div>
         <button id="again" class="cta">Bowl again</button>
         <button id="toMenu" class="ghost">Change ball</button>
+      </div>
+    </div>
+
+    <div id="shop" class="overlay" hidden>
+      <div class="card wide">
+        <div class="label">Lane cleared</div>
+        <h2 id="shopTitle">Warm-up Lane cleared!</h2>
+        <div class="shopMeta"><span id="shopScore"></span><span id="shopCoins">🪙 0</span></div>
+        <div id="shopReward"></div>
+        <div class="label sec">Choose a perk</div>
+        <div id="cards"></div>
+        <button id="reroll" class="mini"></button>
+        <div class="label sec">Power-up shop</div>
+        <div id="shelf"></div>
+        <div id="shopNext"></div>
+        <button id="shopGo" class="cta">Next lane ▸</button>
+      </div>
+    </div>
+
+    <div id="runover" class="overlay" hidden>
+      <div class="card">
+        <div id="roTitle">RUN OVER</div>
+        <div id="roSub"></div>
+        <div id="roStats"></div>
+        <div id="roPerks"></div>
+        <div id="roBest"></div>
+        <button id="roAgain" class="cta">New run</button>
+        <button id="roMenu" class="ghost">Menu</button>
       </div>
     </div>
 

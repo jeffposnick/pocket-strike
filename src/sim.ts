@@ -16,8 +16,34 @@ import {
 
 export type PinState = 'standing' | 'down' | 'pit' | 'cleared';
 
+/** Power-ups a special pin can grant (and that can be armed for a throw). */
+export type PowerId = 'fire' | 'bomb' | 'chain' | 'mega' | 'homing' | 'rails';
+export type PinKind = 'normal' | 'gold' | PowerId;
+
+/** Lasting changes to the physics, from roguelike perks and stage modifiers. */
+export interface SimMods {
+  ballR: number;
+  ballMass: number;
+  hookMult: number;
+  /** Multiplier on how hard a pin must be hit to fall. */
+  fallMult: number;
+}
+
+/** Power-ups active for the current roll. */
+export interface ActivePowers {
+  fire: boolean;
+  bomb: boolean;
+  chain: boolean;
+  mega: boolean;
+  homing: boolean;
+}
+
+export const NO_POWERS: ActivePowers = { fire: false, bomb: false, chain: false, mega: false, homing: false };
+export const DEFAULT_MODS: SimMods = { ballR: 1, ballMass: 1, hookMult: 1, fallMult: 1 };
+
 export interface Pin {
   id: number;
+  kind: PinKind;
   x: number;
   y: number;
   vx: number;
@@ -31,6 +57,8 @@ export interface Pin {
   downT: number;
   /** Seconds since it dropped into the pit. */
   pitT: number;
+  /** Set by the Fireball: a burning pin topples whatever it touches. */
+  burning: boolean;
 }
 
 export interface Ball {
@@ -53,7 +81,13 @@ export type SimEvent =
   | { type: 'wall'; x: number; y: number; power: number }
   | { type: 'gutter'; x: number; y: number }
   | { type: 'bumper'; x: number; y: number; power: number }
-  | { type: 'pit'; x: number; y: number };
+  | { type: 'pit'; x: number; y: number }
+  | { type: 'pinDown'; id: number; kind: PinKind; x: number; y: number }
+  | { type: 'bomb'; x: number; y: number }
+  | { type: 'zap'; x1: number; y1: number; x2: number; y2: number };
+
+export const BOMB_RADIUS = 165;
+const MEGA_SCALE = 1.8;
 
 /** Δv a standing pin must take to go down; softer knocks just make it wobble. */
 export const TUNE = { fallDv: 220, downFriction: 2.2, pinE: 0.6, ballE: 0.55 };
@@ -94,6 +128,13 @@ export class Sim {
   /** True once the ball has touched any pin on this roll. */
   contact = false;
   rollTime = 0;
+  mods: SimMods = { ...DEFAULT_MODS };
+  powers: ActivePowers = { ...NO_POWERS };
+  /** Where homing steers the ball. */
+  homingX = 0;
+  private bombUsed = false;
+  private zaps: { x: number; y: number; t: number }[] = [];
+  private zapsLeft = 0;
   private readonly rand: Rand;
 
   constructor(rand: Rand = Math.random) {
@@ -101,6 +142,8 @@ export class Sim {
     for (let i = 0; i < 10; i++) {
       this.pins.push({
         id: i + 1,
+        kind: 'normal',
+        burning: false,
         x: 0,
         y: 0,
         vx: 0,
@@ -126,6 +169,7 @@ export class Sim {
         angle: 0,
         av: 0,
         state: 'standing' as PinState,
+        burning: false,
         wobble: 0,
         downT: 0,
         pitT: 0,
@@ -160,8 +204,20 @@ export class Sim {
     });
   }
 
+  /** Current ball radius, after perks and Mega Ball. */
+  get ballR(): number {
+    return BALL_R * this.mods.ballR * (this.powers.mega ? MEGA_SCALE : 1);
+  }
+
+  private get ballMass(): number {
+    return BALL_MASS * this.mods.ballMass * (this.powers.mega ? 3 : 1) * (this.powers.fire ? 6 : 1);
+  }
+
   launch(speed: number, angle: number, spin: number): void {
     const b = this.ball;
+    this.bombUsed = false;
+    this.zaps = [];
+    this.zapsLeft = 3;
     b.vx = Math.sin(angle) * speed;
     b.vy = -Math.cos(angle) * speed;
     b.spin = spin;
@@ -182,6 +238,7 @@ export class Sim {
     const b = this.ball;
     const ballDone = !b.rolling || b.inPit || Math.hypot(b.vx, b.vy) < 15;
     if (!ballDone) return false;
+    if (this.zaps.length) return false;
     if (this.rollTime > 7 || (b.inPit && b.pitT > 2.2)) return true;
     return this.pins.every(
       (p) =>
@@ -201,18 +258,23 @@ export class Sim {
         // Oil up front, dry back end: the ball skids, then hooks.
         const progress = -b.y / -HEAD_Y;
         const grip = Math.max(0, Math.min(1, (progress - 0.3) / 0.4));
-        b.vx += b.spin * HOOK * grip * h;
+        b.vx += b.spin * HOOK * this.mods.hookMult * grip * h;
+        if (this.powers.homing && b.y < -300 && b.y > HEAD_Y + 30) {
+          const ax = (this.homingX - b.x) * 30 - b.vx * 11;
+          b.vx += Math.max(-2600, Math.min(2600, ax)) * h;
+        }
       }
       const drag = Math.exp(-0.04 * h);
       b.vx *= drag;
       b.vy *= drag;
       b.x += b.vx * h;
       b.y += b.vy * h;
-      b.rot += (Math.hypot(b.vx, b.vy) / BALL_R) * h * 0.18 + b.spin * h * 5;
+      const R = this.ballR;
+      b.rot += (Math.hypot(b.vx, b.vy) / R) * h * 0.18 + b.spin * h * 5;
 
       if (!b.gutter && b.y > DECK_Y) {
         if (this.bumpers) {
-          const lim = LANE_HALF - BALL_R + 6;
+          const lim = LANE_HALF - R + 6;
           if (Math.abs(b.x) > lim) {
             const s = Math.sign(b.x);
             b.x = s * lim;
@@ -228,12 +290,12 @@ export class Sim {
           this.events.push({ type: 'gutter', x: b.x, y: b.y });
         }
       }
-      if (!b.gutter && b.y <= DECK_Y && Math.abs(b.x) > WALL_X - BALL_R) {
+      if (!b.gutter && b.y <= DECK_Y && Math.abs(b.x) > WALL_X - R) {
         const s = Math.sign(b.x);
-        b.x = s * (WALL_X - BALL_R);
+        b.x = s * (WALL_X - R);
         b.vx = -s * Math.abs(b.vx) * 0.4;
       }
-      if (b.y < PIT_Y - BALL_R * 0.4) {
+      if (b.y < PIT_Y - R * 0.4) {
         b.inPit = true;
         this.events.push({ type: 'pit', x: b.x, y: b.y });
       }
@@ -276,9 +338,34 @@ export class Sim {
         p.pitT += h;
       }
       if ((p.state === 'standing' || p.state === 'down') && p.y < PIT_Y) {
+        if (p.state === 'standing') this.events.push({ type: 'pinDown', id: p.id, kind: p.kind, x: p.x, y: p.y });
         p.state = 'pit';
         p.pitT = 0;
         this.events.push({ type: 'pit', x: p.x, y: p.y });
+      }
+    }
+
+    // ---- Chain lightning
+    for (const z of this.zaps) z.t -= h;
+    while (this.zaps.length && this.zaps[0].t <= 0) {
+      const z = this.zaps.shift()!;
+      let best: Pin | null = null;
+      let bestD = 200;
+      for (const p of this.pins) {
+        if (p.state !== 'standing') continue;
+        const d = Math.hypot(p.x - z.x, p.y - z.y);
+        if (d < bestD) {
+          bestD = d;
+          best = p;
+        }
+      }
+      if (best) {
+        const nx = (best.x - z.x) / (bestD || 1);
+        const ny = (best.y - z.y) / (bestD || 1);
+        this.events.push({ type: 'zap', x1: z.x, y1: z.y, x2: best.x, y2: best.y });
+        best.vx = nx * 320;
+        best.vy = ny * 320;
+        this.afterHit(best, 9999, nx, ny);
       }
     }
 
@@ -316,9 +403,9 @@ export class Sim {
       const dx = c.x - b.x;
       const dy = c.y - b.y;
       const d = Math.hypot(dx, dy);
-      const min = BALL_R + c.r;
+      const min = this.ballR + c.r;
       if (d >= min || d === 0) continue;
-      const ballRef: BodyRef = { x: b.x, y: b.y, vx: b.vx, vy: b.vy, av: 0, invM: 1 / BALL_MASS, invI: 0 };
+      const ballRef: BodyRef = { x: b.x, y: b.y, vx: b.vx, vy: b.vy, av: 0, invM: 1 / this.ballMass, invI: 0 };
       const pinRef = this.pinRef(p);
       const dv = resolve(ballRef, pinRef, c.x - (dx / d) * c.r, c.y - (dy / d) * c.r, dx / d, dy / d, min - d, TUNE.ballE);
       b.x = ballRef.x;
@@ -330,7 +417,9 @@ export class Sim {
         this.events.push({ type: 'ballPin', x: c.x, y: c.y, power: dv });
         this.contact = true;
       }
-      this.afterHit(p, dv, dx / d, dy / d);
+      if (this.powers.fire && dv > 20) p.burning = true;
+      this.afterHit(p, this.powers.fire ? dv * 3 : dv, dx / d, dy / d);
+      if (this.powers.bomb && !this.bombUsed && dv > 20) this.explode(c.x, c.y);
       return;
     }
   }
@@ -353,8 +442,11 @@ export class Sim {
         this.applyRef(a, ra);
         this.applyRef(c, rc);
         if (dv > 25) this.events.push({ type: 'pinPin', x: ca.x + nx * ca.r, y: ca.y + ny * ca.r, power: dv });
-        if (aWasStanding) this.afterHit(a, dv * (c.state === 'standing' ? 0.6 : 1), -nx, -ny);
-        if (cWasStanding) this.afterHit(c, dv * (a.state === 'standing' ? 0.6 : 1), nx, ny);
+        const fire = a.burning || c.burning;
+        if (fire && dv > 4) a.burning = c.burning = true;
+        const boost = fire ? 7 : 1;
+        if (aWasStanding) this.afterHit(a, dv * boost * (c.state === 'standing' ? 0.6 : 1), -nx, -ny);
+        if (cWasStanding) this.afterHit(c, dv * boost * (a.state === 'standing' ? 0.6 : 1), nx, ny);
         return;
       }
     }
@@ -381,12 +473,37 @@ export class Sim {
     if (p.state === 'down') p.av = r.av;
   }
 
+  private explode(x: number, y: number): void {
+    this.bombUsed = true;
+    this.events.push({ type: 'bomb', x, y });
+    for (const p of this.pins) {
+      if (p.state !== 'standing' && p.state !== 'down') continue;
+      const dx = p.x - x;
+      const dy = p.y - y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d > BOMB_RADIUS) continue;
+      const dv = 140 + 760 * (1 - d / BOMB_RADIUS);
+      const nx = dx / d;
+      const ny = dy / d;
+      p.vx += nx * dv;
+      p.vy += ny * dv;
+      if (p.state === 'down') p.av += (this.rand() - 0.5) * 30;
+      else this.afterHit(p, dv, nx, ny);
+    }
+  }
+
   /** Decides whether a standing pin that just got hit topples or just rocks. */
   private afterHit(p: Pin, dv: number, nx: number, ny: number): void {
     if (p.state !== 'standing') return;
-    if (dv > TUNE.fallDv * (0.85 + this.rand() * 0.3)) {
+    const need = TUNE.fallDv * this.mods.fallMult;
+    if (dv > need * (0.85 + this.rand() * 0.3)) {
       p.state = 'down';
       p.downT = 0;
+      this.events.push({ type: 'pinDown', id: p.id, kind: p.kind, x: p.x, y: p.y });
+      if (this.powers.chain && this.zapsLeft > 0) {
+        this.zapsLeft--;
+        this.zaps.push({ x: p.x, y: p.y, t: 0.09 });
+      }
       const speed = Math.hypot(p.vx, p.vy);
       // A little chaos so no two racks fall the same way.
       const jitter = (this.rand() - 0.5) * 0.5;
@@ -397,7 +514,7 @@ export class Sim {
       p.av = (this.rand() - 0.5) * 10;
       p.wobble = 0;
     } else {
-      p.wobble = Math.min(1, p.wobble + dv / TUNE.fallDv + 0.15);
+      p.wobble = Math.min(1, p.wobble + dv / need + 0.15);
       // Standing pins only scoot a little.
       p.vx = nx * Math.min(dv, 60) * 0.5;
       p.vy = ny * Math.min(dv, 60) * 0.5;
