@@ -9,10 +9,11 @@
 //
 // Checks, in Chromium via Playwright:
 //   1. The page is installable (no manifest/installability errors).
-//   2. The service worker takes control and reports "ready to play offline".
+//   2. The service worker takes control and reports "ready to play offline" (the toast waits until
+//      the menu dialog closes, since a modal dialog makes the rest of the page inert).
 //   3. With the network off, a reload still serves the full game: fonts load
 //      and a ball can be bowled.
-//   4. With --update: after `dist/` is rebuilt with a change, the page offers
+//   4. With --update: after `dist/` is rebuilt with a change, the menu offers
 //      an "Update" button, and tapping it loads the new version.
 const { chromium, devices } = require('playwright');
 const { execSync } = require('child_process');
@@ -42,8 +43,19 @@ const check = (ok, msg) => {
   const manifest = await cdp.send('Page.getAppManifest');
   check(!manifest.errors?.length, `manifest parses cleanly${manifest.errors?.length ? ': ' + JSON.stringify(manifest.errors) : ''}`);
 
-  await page.waitForFunction(() => document.getElementById('pwaText')?.textContent?.includes('offline'), null, { timeout: 20000 });
-  check(true, 'service worker installed and "Ready to play offline" shown');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.waitForTimeout(1000);
+  check(
+    !(await page.evaluate(() => document.getElementById('pwaPill').matches(':popover-open'))),
+    'no toast over the open menu dialog',
+  );
+  await page.click('#play');
+  await page.waitForFunction(
+    () => document.getElementById('pwaPill').matches(':popover-open') && document.getElementById('pwaText').textContent.includes('offline'),
+    null,
+    { timeout: 20000 },
+  );
+  check(true, 'service worker installed and "Ready to play offline" shown once the menu closed');
 
   // Make sure this page is controlled before going offline.
   if (!(await page.evaluate(() => !!navigator.serviceWorker.controller))) await page.reload();
@@ -85,10 +97,10 @@ const check = (ok, msg) => {
     }
     try {
       await page.reload();
-      await page.waitForFunction(() => document.getElementById('pwaText')?.textContent?.includes('new version'), null, { timeout: 30000 });
+      await page.waitForSelector('#updateBtn', { state: 'visible', timeout: 30000 });
       const tagBefore = await page.textContent('.tag');
-      check(tagBefore.includes('pocket.'), 'new build detected: "Update" offered, old version keeps running until tapped');
-      await Promise.all([page.waitForEvent('load', { timeout: 15000 }), page.click('#pwaAction')]);
+      check(tagBefore.includes('pocket.'), 'new build detected: "Update" offered in the menu, old version keeps running until tapped');
+      await Promise.all([page.waitForEvent('load', { timeout: 15000 }), page.click('#updateBtn')]);
       await page.waitForSelector('.tag');
       const tag = await page.textContent('.tag');
       check(tag.includes('pocket!'), `after tapping Update the new version is running ("${tag}")`);

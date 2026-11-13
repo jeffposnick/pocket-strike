@@ -7,6 +7,36 @@ import type { FrameView } from './scoring.ts';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
+/** Return value that marks a dialog as closed by the game rather than by Esc or the back gesture. */
+const DONE = 'done';
+
+/** Opens an overlay as a native modal dialog: the page behind goes inert and focus moves inside. */
+export function openDialog(id: string): void {
+  const d = $<HTMLDialogElement>(id);
+  if (!d.open) d.showModal();
+}
+
+/** Closes an overlay opened with `openDialog`. Focus returns to the element that opened it. */
+export function closeDialog(id: string): void {
+  const d = $<HTMLDialogElement>(id);
+  if (d.open) d.close(DONE);
+}
+
+/**
+ * Every overlay is a step in the game flow that only its own buttons can leave, so Esc and the
+ * Android back gesture must not close it. `cancel` is prevented, and because browsers stop honouring
+ * that after repeated presses without user activation, a dialog that closes anyway reopens.
+ */
+function guardDialogs(): void {
+  for (const d of document.querySelectorAll<HTMLDialogElement>('dialog.overlay')) {
+    d.addEventListener('cancel', (e) => e.preventDefault());
+    d.addEventListener('close', () => {
+      if (d.returnValue !== DONE) d.showModal();
+      d.returnValue = '';
+    });
+  }
+}
+
 export type BannerKind = 'strike' | 'spare' | 'split' | 'gutter' | 'plain';
 
 export interface GameOverStats {
@@ -26,6 +56,7 @@ export class Hud {
   private bumpers = false;
 
   constructor() {
+    guardDialogs();
     const board = $('board');
     for (let f = 0; f < 10; f++) {
       const el = document.createElement('div');
@@ -58,7 +89,6 @@ export class Hud {
         d.style.width = d.style.height = `${dot}px`;
         d.style.left = `${(k + (rows - 1 - row) / 2) * stepX + 2}px`;
         d.style.top = `${(rows - 1 - row) * stepY + 2}px`;
-        d.title = `Pin ${id}`;
         rack.appendChild(d);
         this.rackDots.set(id, d);
         id++;
@@ -92,6 +122,8 @@ export class Hud {
 
   /** `colors` highlights special pins (by pin id) in their power-up color. */
   setRack(standing: readonly number[], colors?: ReadonlyMap<number, string>): void {
+    const up = [...this.rackDots.keys()].filter((id) => standing.includes(id)).length;
+    $('rack').setAttribute('aria-label', `${up} of ${this.rackDots.size} pins standing`);
     for (const [id, el] of this.rackDots) {
       el.classList.toggle('down', !standing.includes(id));
       const c = colors?.get(id);
@@ -181,31 +213,29 @@ export class Hud {
   }
 
   showMenu(best: number, bestRun: number, onPlay: (style: BallStyle, bumpers: boolean, mode: Mode) => void): void {
-    $('over').hidden = true;
-    $('runover').hidden = true;
-    $('shop').hidden = true;
-    const menu = $('menu');
-    menu.hidden = false;
+    closeDialog('over');
+    closeDialog('runover');
+    closeDialog('shop');
     const parts: string[] = [];
     if (best) parts.push(`Best classic game: ${best}`);
     if (bestRun) parts.push(`Furthest run: stage ${Math.min(bestRun, STAGES.length)}${bestRun >= STAGES.length ? ' (champion!)' : ''}`);
     $('menuBest').textContent = parts.length ? parts.join(' · ') : 'No games bowled yet';
 
+    // A radio group, so the chosen ball is exposed as a checked state, not just a highlight.
     const picks = $('balls');
-    picks.innerHTML = '';
+    picks.querySelectorAll('label').forEach((el) => el.remove());
     BALL_STYLES.forEach((s, i) => {
-      const b = document.createElement('button');
-      b.className = 'ballPick' + (i === this.styleIndex ? ' on' : '');
-      b.style.setProperty('--a', s.a);
-      b.style.setProperty('--b', s.b);
-      b.setAttribute('aria-label', `${s.name} ball`);
-      b.innerHTML = `<i></i><span>${s.name}</span>`;
-      b.onclick = () => {
-        this.styleIndex = i;
-        for (const el of picks.children) el.classList.remove('on');
-        b.classList.add('on');
-      };
-      picks.appendChild(b);
+      const label = document.createElement('label');
+      label.className = 'ballPick';
+      label.style.setProperty('--a', s.a);
+      label.style.setProperty('--b', s.b);
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'ball';
+      radio.checked = i === this.styleIndex;
+      radio.addEventListener('change', () => (this.styleIndex = i));
+      label.append(radio, document.createElement('i'), Object.assign(document.createElement('span'), { textContent: s.name }));
+      picks.appendChild(label);
     });
 
     const bump = $<HTMLInputElement>('bumpers');
@@ -219,27 +249,27 @@ export class Hud {
       } catch {
         /* ignore */
       }
-      menu.hidden = true;
+      closeDialog('menu');
       onPlay(BALL_STYLES[this.styleIndex], this.bumpers, mode);
     };
     $('play').onclick = () => go('classic');
     $('playRun').onclick = () => go('run');
+    openDialog('menu');
   }
 
   showOver(stats: GameOverStats, onAgain: () => void, onMenu: () => void): void {
-    const over = $('over');
     $('finalScore').textContent = String(stats.score);
     $('finalBest').textContent = stats.newBest ? 'New personal best!' : `Best: ${stats.best}`;
     $('finalBest').classList.toggle('new', stats.newBest);
     $('finalStats').textContent = `${stats.strikes} strike${stats.strikes === 1 ? '' : 's'} · ${stats.spares} spare${stats.spares === 1 ? '' : 's'}`;
     $('finalRating').textContent = rating(stats.score);
-    over.hidden = false;
+    openDialog('over');
     $('again').onclick = () => {
-      over.hidden = true;
+      closeDialog('over');
       onAgain();
     };
     $('toMenu').onclick = () => {
-      over.hidden = true;
+      closeDialog('over');
       onMenu();
     };
   }
@@ -336,8 +366,6 @@ Hud.prototype.showShop = function (
   onDone: () => void,
   onBuy: () => void,
 ): void {
-  const shop = $('shop');
-  shop.hidden = false;
   $('shopTitle').textContent = `${run.stageInfo.name} cleared!`;
   $('shopScore').textContent = `${run.stageScore} / ${run.stageInfo.target}`;
   $('shopReward').textContent = reward.map((r) => `${r.label} +${r.coins}`).join(' · ');
@@ -401,8 +429,9 @@ Hud.prototype.showShop = function (
     $('shopGo').textContent = picked ? 'Next lane ▸' : 'Skip perk ▸';
   };
   render();
+  openDialog('shop');
   $('shopGo').onclick = () => {
-    shop.hidden = true;
+    closeDialog('shop');
     onDone();
   };
 };
@@ -415,8 +444,6 @@ Hud.prototype.showRunOver = function (
   onAgain: () => void,
   onMenu: () => void,
 ): void {
-  const el = $('runover');
-  el.hidden = false;
   $('roTitle').textContent = victory ? 'CHAMPION!' : 'RUN OVER';
   $('roTitle').classList.toggle('win', victory);
   $('roSub').textContent = victory
@@ -436,12 +463,13 @@ Hud.prototype.showRunOver = function (
   });
   $('roPerks').textContent = perks.length ? perks.join(' · ') : 'No perks this run';
   $('roBest').textContent = newBest ? 'New personal best!' : '';
+  openDialog('runover');
   $('roAgain').onclick = () => {
-    el.hidden = true;
+    closeDialog('runover');
     onAgain();
   };
   $('roMenu').onclick = () => {
-    el.hidden = true;
+    closeDialog('runover');
     onMenu();
   };
 };

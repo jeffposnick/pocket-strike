@@ -25,6 +25,15 @@ roguelike "Neon Run" mode with a 55-pin rack.
 - After changing physics or balance, run `npm run sim:pinfall` / `npm run sim:balance` and update the
   tables in `docs/PHYSICS.md` / `docs/NEON-RUN.md`.
 - Pushes to `main` deploy to GitHub Pages through GitHub Actions (`.github/workflows/deploy.yml`).
+- Follow Chrome's Modern Web Guidance (https://developer.chrome.com/docs/modern-web-guidance) for all
+  HTML, CSS and client-side JS work (not for `src/sim.ts`-style game logic, tooling or the sim tools).
+  `.claude/settings.json` enables its `modern-web-guidance` plugin: use that skill before writing UI
+  code (if it isn't loaded, run `npx -y modern-web-guidance@latest search "<2-5 word query>"`, then
+  `retrieve "<id>"`), and check the result against the guide. See "Web platform"
+  in docs/DEVELOPMENT.md for the patterns already in place.
+- **Browser support:** Baseline Widely available. Newer features are fine as progressive enhancement
+  with a small same-origin fallback; never load a polyfill from a CDN, and only bundle one if a guide
+  requires it and the fallback can't be done in a few lines.
 - It's a PWA (`vite-plugin-pwa`, injectManifest; the service worker is `src/sw.ts` on
   `@vite-pwa/workbox-swkit`, imported via subpath exports only). Keep every runtime asset same-origin and bundled so it stays
   offline-capable; no CDN fonts or scripts. After changing PWA behaviour, run `tools/pwa-check.cjs`

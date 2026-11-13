@@ -79,12 +79,12 @@ The site is then at `https://<owner>.github.io/pocket-strike/`.
   icons), about 700 KB in 15 files. Fonts come from `@fontsource/*` rather than Google Fonts, so
   nothing loads from another origin at runtime.
 - **Updates:** `registerType: 'prompt'`. A new build installs in the background and waits; `src/pwa.ts`
-  shows an "Update" pill, and nothing reloads until the player taps it (which sends `SKIP_WAITING`), so
+  shows an "Update" button in the menu and an "Update" toast, and nothing reloads until the player taps it (which sends `SKIP_WAITING`), so
   an update never interrupts a game. Besides the browser's own check on navigation, `src/pwa.ts` calls `registration.update()` on
   startup, whenever the app returns to the foreground, and hourly. An installed game can stay open
   for days, and the navigation check alone proved unreliable in testing.
-- **Install:** Chromium's `beforeinstallprompt` is captured and shown as an "Install app" button in
-  the menu. iOS Safari has no prompt, so the menu explains Share → Add to Home Screen instead.
+- **Install:** an "Install app" button in the menu uses `navigator.install()` where supported, else
+  Chromium's captured `beforeinstallprompt`. iOS Safari has no prompt, so the menu explains Share → Add to Home Screen instead.
 - **Icons:** `tools/icons/icon.svg` is the source. `node tools/icons/render.cjs` (needs Playwright)
   renders `public/icon-*.png`, the maskable icon (art shrunk into the 80% safe zone), the Apple touch
   icon and favicons.
@@ -102,6 +102,33 @@ The site is then at `https://<owner>.github.io/pocket-strike/`.
 
 The dev server doesn't register a service worker (`devOptions` is off), so offline behaviour can
 only be tested against a build.
+
+## Web platform
+
+HTML, CSS and client-side JS follow Chrome's
+[Modern Web Guidance](https://developer.chrome.com/docs/modern-web-guidance), with a Baseline Widely
+available target (see CLAUDE.md). Patterns in place:
+
+- **Overlays are modal `<dialog>`s** (menu, game over, shop, run over), opened with `showModal()` via
+  `openDialog()` / `closeDialog()` in `src/hud.ts`. The browser makes the page behind inert, moves focus
+  in and returns it on close. Each dialog is a step in the game flow, so `cancel` (Esc, Android back) is
+  prevented, and a dialog that closes anyway (browsers stop honouring `preventDefault()` after repeated
+  presses) reopens itself. Don't open or close them with `hidden`.
+- **Ball picker** is a `<fieldset>` of radio inputs styled with `label:has(:checked)`, so the choice is a
+  real checked state. The bumpers toggle is `<input type="checkbox" switch role="switch">`.
+- **Toast** (`#pwaPill`) is a `popover="manual"` in the top layer, announced with `ariaNotify()` or the
+  `#announcer` live region. It never shows over a modal dialog (it would be inert): `pill()` in
+  `src/pwa.ts` holds it until the dialog closes. Its Update action is also always in the menu.
+- **Install** prefers `navigator.install()` (Web Install API) and falls back to `beforeinstallprompt`.
+- **Motion:** decorative animations are opted in with `@media (prefers-reduced-motion: no-preference)`;
+  ones that carry information (banners, points) swap to an opacity-only keyframe under `reduce` so they
+  still end visible.
+- **Zoom isn't disabled** in the viewport meta; `touch-action: none` on the page keeps gestures for the
+  game. `user-select: none` is limited to the canvas, HUD and buttons.
+
+Not adopted, deliberately: `<meta name="text-scale">` (the HUD is sized in px to sit over a fixed-size
+canvas; opting in would need a rem-based HUD layout first) and `font-size-adjust: from-font` (it inherits
+as a fixed number and resized the Bungee display text).
 
 ## Where to change things
 

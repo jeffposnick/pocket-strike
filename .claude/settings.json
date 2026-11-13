@@ -1,0 +1,9 @@
+{
+  "extraKnownMarketplaces": {
+    "googlechrome": { "source": { "source": "github", "repo": "GoogleChrome/modern-web-guidance" } }
+  },
+  "enabledPlugins": { "modern-web-guidance@googlechrome": true },
+  "permissions": {
+    "allow": ["Bash(npx -y modern-web-guidance@latest *)"]
+  }
+}
