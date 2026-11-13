@@ -2,6 +2,12 @@ import * as ex from 'excalibur';
 import { NEON } from './art.ts';
 import { Hud } from './hud.ts';
 import { Lanes } from './lanes.ts';
+// Self-hosted fonts (Latin subset) so the game looks right offline.
+import '@fontsource/bungee/latin-400.css';
+import '@fontsource/rubik/latin-400.css';
+import '@fontsource/rubik/latin-600.css';
+import '@fontsource/rubik/latin-800.css';
+import { setupPwa } from './pwa.ts';
 import './style.css';
 
 const game = new ex.Engine({
@@ -20,3 +26,5 @@ if (import.meta.env.DEV) (window as unknown as { lanes: Lanes }).lanes = lanes;
 game.add('lanes', lanes);
 await game.start();
 await game.goToScene('lanes');
+
+setupPwa();

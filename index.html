@@ -10,12 +10,12 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Pocket Strike</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;600;800&display=swap"
-    />
+    <meta name="description" content="Neon 2D bowling for your phone: flick to bowl, curve to hook, and take on the 55-pin Neon Run." />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Pocket Strike" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   </head>
   <body>
     <canvas id="game"></canvas>
@@ -79,6 +79,8 @@
           <li><b>Curve</b> the flick to add hook. Aim between the 1 and 3 pins.</li>
         </ul>
         <div id="menuBest"></div>
+        <button id="installBtn" class="ghost install" hidden>Install app</button>
+        <p id="iosHint" class="iosHint" hidden>To install: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
       </div>
     </div>
 
@@ -120,6 +122,11 @@
         <button id="roAgain" class="cta">New run</button>
         <button id="roMenu" class="ghost">Menu</button>
       </div>
+    </div>
+
+    <div id="pwaPill" role="status" aria-live="polite" hidden>
+      <span id="pwaText"></span>
+      <button id="pwaAction" hidden>Update</button>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

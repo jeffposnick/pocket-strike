@@ -2,6 +2,9 @@
 
 **Play:** https://jeffposnick.github.io/pocket-strike/ (deployed from `main` on every push)
 
+It's an installable, offline-capable PWA. Use **Install app** in the menu (Chrome, Edge, Android),
+or **Share → Add to Home Screen** on iOS. Once loaded, it plays with no connection.
+
 A touch-first 2D bowling game built with [Excalibur](https://excaliburjs.com/) + TypeScript + Vite.
 Top-down neon lanes, real pin action, ten-frame scoring.
 

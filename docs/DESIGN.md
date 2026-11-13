@@ -41,6 +41,7 @@ src/
   run.ts         Neon Run state: stages, perks, power-ups, points, shop offers
   hud.ts         HTML overlay: scoreboard, run bar, banners, menus, shop
   audio.ts       Web Audio synth effects (no audio files)
+  pwa.ts         Service worker registration, install button, update prompt
   style.css      HUD and menu styles
 tools/sim/       Headless simulations and tests that import src/ directly
 ```
@@ -81,9 +82,16 @@ so resting pins can't shuffle.
 
 - **Palette:** night indigo `#0c0a1f` with neon pink `#ff3fa4`, cyan `#38f3ff`, amber `#ffc84a`
   and violet `#9b6bff`, on warm maple wood.
-- **Type:** Bungee for display, Rubik for UI, from Google Fonts with system fallbacks.
+- **Type:** Bungee for display, Rubik for UI, self-hosted via `@fontsource` (Latin subset) with system fallbacks.
 - **Banners:** escalate with the result. STRIKE / DOUBLE / TURKEY / N-BAGGER in Classic;
   Nice Hit / Big Hit / MEGA STRIKE in Neon Run.
+
+## Offline and installable
+
+The game is a PWA: it installs to the home screen, launches standalone in portrait, and plays fully
+offline. Nothing loads from another origin: fonts are self-hosted, art is drawn in code and sound is
+synthesized. So the precache is just the build output. Updates wait for the player to tap "Update".
+Details are in [DEVELOPMENT.md](DEVELOPMENT.md#pwa-offline--installable).
 
 ## Known limits and ideas
 

@@ -53,6 +53,39 @@ Branch: `gh-pages` / root.** The site is then at `https://<owner>.github.io/pock
 
 `vite.config.ts` sets `base: './'` so the build works from any sub-path.
 
+## PWA (offline + installable)
+
+`vite-plugin-pwa` (configured in `vite.config.ts`) generates a Workbox service worker (`dist/sw.js`) and
+`manifest.webmanifest` at build time.
+
+- **Offline:** everything the game needs is precached (JS, CSS, HTML, the self-hosted woff2 fonts,
+  icons), about 700 KB in 15 files. Fonts come from `@fontsource/*` rather than Google Fonts, so
+  nothing loads from another origin at runtime.
+- **Updates:** `registerType: 'prompt'`. A new build installs in the background, and `src/pwa.ts`
+  shows an "Update" pill; nothing reloads until the player taps it, so an update never interrupts a
+  game. Besides the browser's own check on navigation, `src/pwa.ts` calls `registration.update()` on
+  startup, whenever the app returns to the foreground, and hourly. An installed game can stay open
+  for days, and the navigation check alone proved unreliable in testing.
+- **Install:** Chromium's `beforeinstallprompt` is captured and shown as an "Install app" button in
+  the menu. iOS Safari has no prompt, so the menu explains Share → Add to Home Screen instead.
+- **Icons:** `tools/icons/icon.svg` is the source. `node tools/icons/render.cjs` (needs Playwright)
+  renders `public/icon-*.png`, the maskable icon (art shrunk into the 80% safe zone), the Apple touch
+  icon and favicons.
+- **Install-dialog screenshots:** `public/screenshots/*.png` (780×1688). Regenerate with the dev server
+  running: `node tools/icons/screenshots.cjs`.
+- **End-to-end check:** `tools/pwa-check.cjs` verifies installability, offline play and the update flow
+  in Chromium. Serve `dist/` with a plain static server: `vite preview` caches file metadata at startup
+  and breaks the update test.
+
+  ```sh
+  npm run build
+  python3 -m http.server 4175 --directory dist &
+  node tools/pwa-check.cjs --update
+  ```
+
+The dev server doesn't register a service worker (`devOptions` is off), so offline behaviour can
+only be tested against a build.
+
 ## Where to change things
 
 | Goal | Place |
@@ -64,6 +97,8 @@ Branch: `gh-pages` / root.** The site is then at `https://<owner>.github.io/pock
 | Banners, scoreboard, shop | `hud.ts`, `index.html`, `style.css` |
 | Sounds | `audio.ts` |
 | Lane artwork | `paintLane` in `art.ts` |
+| App name, colours, icons in the manifest | `vite.config.ts` (`VitePWA({ manifest })`), `tools/icons/` |
+| Install / update prompts | `src/pwa.ts` |
 
 After physics or balance changes, re-run the sims and update the numbers in `docs/PHYSICS.md` /
 `docs/NEON-RUN.md`.
