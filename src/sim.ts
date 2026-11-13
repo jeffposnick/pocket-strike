@@ -135,6 +135,8 @@ export class Sim {
   bumpers = false;
   /** True once the ball has touched any pin on this roll. */
   contact = false;
+  /** Seconds since the ball first touched a pin. */
+  sinceContact = 0;
   rollTime = 0;
   mods: SimMods = { ...DEFAULT_MODS };
   powers: ActivePowers = { ...NO_POWERS };
@@ -256,6 +258,7 @@ export class Sim {
     b.spin = spin;
     b.rolling = true;
     this.contact = false;
+    this.sinceContact = 0;
     this.rollTime = 0;
   }
 
@@ -264,15 +267,17 @@ export class Sim {
     const h = dt / n;
     for (let i = 0; i < n; i++) this.substep(h);
     this.rollTime += dt;
+    if (this.contact) this.sinceContact += dt;
   }
 
   /** Everything has come to rest (or the roll has gone on long enough). */
   settled(): boolean {
     const b = this.ball;
-    const ballDone = !b.rolling || b.inPit || Math.hypot(b.vx, b.vy) < 15;
+    // Once the ball has been among the pins for a while, only the pins matter.
+    const ballDone = !b.rolling || b.inPit || Math.hypot(b.vx, b.vy) < 15 || this.sinceContact > 2.5;
     if (!ballDone) return false;
     if (this.zaps.length) return false;
-    if (this.rollTime > 7 || (b.inPit && b.pitT > 2.2)) return true;
+    if (this.rollTime > 7 || this.sinceContact > 4.5 || (b.inPit && b.pitT > 2.2)) return true;
     return this.pins.every(
       (p) =>
         p.state === 'cleared' ||
@@ -300,12 +305,19 @@ export class Sim {
       const drag = Math.exp(-0.04 * h);
       b.vx *= drag;
       b.vy *= drag;
+      if (this.contact && !b.gutter) {
+        // A 16 lb ball doesn't bounce back off pins: soak up any rebound toward the bowler.
+        if (b.vy > 0) b.vy *= Math.exp(-14 * h);
+        const deck = Math.exp(-0.8 * h);
+        b.vx *= deck;
+        b.vy *= deck;
+      }
       b.x += b.vx * h;
       b.y += b.vy * h;
       const R = this.ballR;
       b.rot += (Math.hypot(b.vx, b.vy) / R) * h * 0.18 + b.spin * h * 5;
 
-      if (!b.gutter && b.y > DECK_Y) {
+      if (!b.gutter && !this.contact && b.y > DECK_Y) {
         if (this.bumpers) {
           const lim = LANE_HALF - R + 6;
           if (Math.abs(b.x) > lim) {
@@ -323,7 +335,7 @@ export class Sim {
           this.events.push({ type: 'gutter', x: b.x, y: b.y });
         }
       }
-      if (!b.gutter && b.y <= DECK_Y && Math.abs(b.x) > WALL_X - R) {
+      if (!b.gutter && (b.y <= DECK_Y || this.contact) && Math.abs(b.x) > WALL_X - R) {
         const s = Math.sign(b.x);
         b.x = s * (WALL_X - R);
         b.vx = -s * Math.abs(b.vx) * 0.4;

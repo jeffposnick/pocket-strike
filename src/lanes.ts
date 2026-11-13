@@ -845,7 +845,8 @@ export class Lanes extends ex.Scene {
             this.sfx.rollUpdate(Math.hypot(b.vx, b.vy) / MAX_SPEED, b.gutter);
           }
         }
-        const target = Math.max(this.deckCamY(), b.y - this.viewH() * 0.16);
+        // Follow the ball down the lane, but stay on the pins once it reaches them.
+        const target = this.sim.contact ? this.deckCamY() : Math.max(this.deckCamY(), b.y - this.viewH() * 0.16);
         this.camY += (target - this.camY) * (1 - Math.exp(-9 * dt));
         if (this.sim.settled()) {
           this.slowStarted = false;
