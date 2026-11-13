@@ -79,6 +79,9 @@ interface Gesture {
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+/** Gentle ease for the long camera pan back to the bowler (peak speed ~1.6× average, not 3×). */
+const easeSine = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
+const RETURN_MS = 1300;
 const CONFETTI_COLORS = [NEON.pink, NEON.cyan, NEON.amber, NEON.violet, '#ffffff', '#7dff9b'].map((c) =>
   ex.Color.fromHex(c),
 );
@@ -337,7 +340,7 @@ export class Lanes extends ex.Scene {
       this.startStage();
       this.returnFrom = this.camY;
       this.sim.placeBall(this.lastX);
-      this.setPhase('return', 850);
+      this.setPhase('return', RETURN_MS);
     }, () => this.sfx.chime());
   }
 
@@ -865,7 +868,8 @@ export class Lanes extends ex.Scene {
         break;
       }
       case 'result':
-        this.sim.step(simDt);
+        // The roll is decided and everything has settled: freeze the deck so
+        // resting pins stay exactly where they landed.
         this.handleEvents();
         if (this.trail.length) this.trail.shift();
         this.camY += (this.deckCamY() - this.camY) * (1 - Math.exp(-6 * dt));
@@ -884,19 +888,18 @@ export class Lanes extends ex.Scene {
         if (this.phaseT >= this.phaseDur) {
           this.returnFrom = this.camY;
           this.sim.placeBall(this.lastX);
-          this.setPhase('return', 850);
+          this.setPhase('return', RETURN_MS);
           this.hud.hideThrow();
         }
         break;
       case 'return': {
-        const k = easeInOut(Math.min(1, this.phaseT / this.phaseDur));
+        const k = easeSine(Math.min(1, this.phaseT / this.phaseDur));
         this.camY = this.returnFrom + (this.aimCamY(engine) - this.returnFrom) * k;
         if (this.phaseT >= this.phaseDur) this.beginAim();
         break;
       }
       case 'over':
       case 'menu':
-        this.sim.step(simDt);
         this.sim.events = [];
         break;
     }

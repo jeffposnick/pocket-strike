@@ -65,7 +65,13 @@ export interface Pin {
   burning: boolean;
   /** Seconds left before a burning pin goes out. */
   burnT: number;
+  /** Seconds a fallen pin has been nearly still; past SLEEP_AFTER it sleeps until hit. */
+  restT: number;
 }
+
+const SLEEP_AFTER = 0.15;
+/** Relative speed needed to wake a sleeping pin. */
+const WAKE_SPEED = 60;
 
 export interface Ball {
   x: number;
@@ -173,6 +179,7 @@ export class Sim {
         kind: 'normal',
         burning: false,
         burnT: 0,
+        restT: 0,
         x: 0,
         y: 0,
         vx: 0,
@@ -208,6 +215,7 @@ export class Sim {
         state: 'standing' as PinState,
         burning: false,
         burnT: 0,
+        restT: 0,
         wobble: 0,
         downT: 0,
         pitT: 0,
@@ -369,11 +377,18 @@ export class Sim {
         p.vx *= k;
         p.vy *= k;
         p.av *= Math.exp(-1.8 * h);
+        // Static friction: a slow pin lying on the deck stops dead instead of creeping.
+        if (Math.abs(p.vx) + Math.abs(p.vy) < 18 && Math.abs(p.av) < 0.8) {
+          p.restT += h;
+          if (p.restT > SLEEP_AFTER) p.vx = p.vy = p.av = 0;
+        } else {
+          p.restT = 0;
+        }
         p.x += p.vx * h;
         p.y += p.vy * h;
         p.angle += p.av * h;
         // Kickbacks and the lane edge.
-        for (const off of this.segOffsets) {
+        for (const off of p.restT > SLEEP_AFTER ? [] : this.segOffsets) {
           const ex = p.x + Math.cos(p.angle) * off;
           if (Math.abs(ex) > WALL_X - this.segR) {
             const s = Math.sign(ex);
@@ -439,6 +454,7 @@ export class Sim {
       for (let j = i + 1; j < this.pins.length; j++) {
         const c = this.pins[j];
         if (c.state !== 'standing' && c.state !== 'down') continue;
+        if (this.resting(a) && this.resting(c) && (this.asleep(a) || this.asleep(c))) continue;
         if (a.state === 'standing' && c.state === 'standing') {
           // Two standing pins only interact if one has been shoved into the other.
           if (Math.abs(a.vx) + Math.abs(a.vy) + Math.abs(c.vx) + Math.abs(c.vy) < 5) continue;
@@ -450,6 +466,16 @@ export class Sim {
         this.collidePins(a, c);
       }
     }
+  }
+
+  /** Asleep, or standing still and not rocking. */
+  private resting(p: Pin): boolean {
+    if (p.state === 'standing') return Math.abs(p.vx) + Math.abs(p.vy) < 3 && p.wobble < 0.3;
+    return this.asleep(p);
+  }
+
+  private asleep(p: Pin): boolean {
+    return p.state === 'down' && p.restT > SLEEP_AFTER;
   }
 
   /** Bounding radius around a pin's centre. */
@@ -472,6 +498,7 @@ export class Sim {
       const d = Math.hypot(dx, dy);
       const min = this.ballR + c.r;
       if (d >= min || d === 0) continue;
+      p.restT = 0;
       const ballRef: BodyRef = { x: b.x, y: b.y, vx: b.vx, vy: b.vy, av: 0, invM: 1 / this.ballMass, invI: 0 };
       const pinRef = this.pinRef(p);
       const dv = resolve(ballRef, pinRef, c.x - (dx / d) * c.r, c.y - (dy / d) * c.r, dx / d, dy / d, min - d, TUNE.ballE);
@@ -501,8 +528,20 @@ export class Sim {
         if (d >= min || d === 0) continue;
         const nx = dx / d;
         const ny = dy / d;
+        // A sleeping pin acts like a fixed obstacle unless it's hit hard enough to wake.
+        const rel = Math.abs(a.vx - c.vx) + Math.abs(a.vy - c.vy) + (Math.abs(a.av) + Math.abs(c.av)) * 10;
+        const aSleeps = this.asleep(a);
+        const cSleeps = this.asleep(c);
+        if (aSleeps && cSleeps) return;
+        if (rel > WAKE_SPEED) {
+          a.restT = 0;
+          c.restT = 0;
+        }
         const ra = this.pinRef(a);
         const rc = this.pinRef(c);
+        if (aSleeps && rel <= WAKE_SPEED) ra.invM = ra.invI = 0;
+        if (cSleeps && rel <= WAKE_SPEED) rc.invM = rc.invI = 0;
+        if (ra.invM === 0 && rc.invM === 0) return;
         const dv = resolve(ra, rc, ca.x + nx * ca.r, ca.y + ny * ca.r, nx, ny, min - d, TUNE.pinE);
         const aWasStanding = a.state === 'standing';
         const cWasStanding = c.state === 'standing';
@@ -565,6 +604,7 @@ export class Sim {
       const ny = dy / d;
       p.vx += nx * dv;
       p.vy += ny * dv;
+      p.restT = 0;
       if (p.state === 'down') p.av += (this.rand() - 0.5) * 30;
       else this.afterHit(p, dv, nx, ny);
     }
@@ -617,11 +657,14 @@ function resolve(
   depth: number,
   e: number,
 ): number {
+  // Soft positional correction: resolve most of the overlap, leave a little slop,
+  // so resting pins don't get shoved back and forth every step.
   const total = a.invM + b.invM;
-  a.x -= nx * depth * (a.invM / total);
-  a.y -= ny * depth * (a.invM / total);
-  b.x += nx * depth * (b.invM / total);
-  b.y += ny * depth * (b.invM / total);
+  const corr = Math.max(0, depth - 0.4) * 0.6;
+  a.x -= nx * corr * (a.invM / total);
+  a.y -= ny * corr * (a.invM / total);
+  b.x += nx * corr * (b.invM / total);
+  b.y += ny * corr * (b.invM / total);
 
   const rax = px - a.x;
   const ray = py - a.y;
