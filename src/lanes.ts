@@ -8,6 +8,7 @@ import {
   makeLaneTiles,
   makeStandingPin,
   NEON,
+  repaintLane,
 } from './art.ts';
 import type { BallStyle } from './art.ts';
 import { buzz, Sfx } from './audio.ts';
@@ -122,6 +123,8 @@ export class Lanes extends ex.Scene {
 
   // Presentation
   private camY = 0;
+  /** Neon Run zooms out a little to fit its wider lane. */
+  private zoom = 1;
   private returnFrom = 0;
   private phaseT = 0;
   private phaseDur = 0;
@@ -214,7 +217,11 @@ export class Lanes extends ex.Scene {
     if (this.sim.layout !== layout) {
       this.sim.setLayout(layout);
       this.ensurePinActors();
+      repaintLane();
     }
+    this.zoom = layout === MEGA_RACK ? 0.88 : 1;
+    this.camera.zoom = this.zoom;
+    this.camY = this.aimCamY();
     this.hud.setRackLayout(layout.rows);
     this.spotsClassic.graphics.isVisible = layout === CLASSIC_RACK;
     this.spotsMega.graphics.isVisible = layout === MEGA_RACK;
@@ -794,17 +801,20 @@ export class Lanes extends ex.Scene {
 
   // ---- Frame loop -------------------------------------------------------------------
 
+  /** Visible world height (the camera zoom shows more world when < 1). */
   private viewH(): number {
-    return this.engine?.drawHeight ?? 960;
+    return (this.engine?.drawHeight ?? 960) / this.zoom;
   }
 
   private aimCamY(engine?: ex.Engine): number {
-    const vh = engine?.drawHeight ?? this.viewH();
-    return BALL_START_Y - vh * 0.34;
+    const vh = engine ? engine.drawHeight / this.zoom : this.viewH();
+    // In Neon Run the ball sits a little higher so the power-up slots don't cover it.
+    return BALL_START_Y - vh * (this.run ? 0.24 : 0.34);
   }
 
   private deckCamY(): number {
-    return PIT_Y - PIT_DEPTH - 60 + this.viewH() / 2;
+    // Put the pit's edge just below the header so the whole rack is visible.
+    return PIT_Y - 240 / this.zoom + this.viewH() / 2;
   }
 
   override onPreUpdate(engine: ex.Engine, elapsed: number): void {
@@ -1064,10 +1074,11 @@ export class Lanes extends ex.Scene {
   }
 
   override onPostDraw(ctx: ex.ExcaliburGraphicsContext): void {
-    const ox = (this.engine?.halfDrawWidth ?? 270) - this.camera.pos.x;
-    const oy = (this.engine?.halfDrawHeight ?? 480) - this.camera.pos.y;
+    // Post-draw runs in screen space: apply the camera (zoom and shake) by hand.
     ctx.save();
-    ctx.translate(ox, oy);
+    ctx.translate(this.engine?.halfDrawWidth ?? 270, this.engine?.halfDrawHeight ?? 480);
+    ctx.scale(this.zoom, this.zoom);
+    ctx.translate(-this.camera.pos.x, -this.camera.pos.y);
 
     // Aim guide: a faint line up the board you're standing on.
     if (this.sim.bumpers && this.phase !== 'menu') {

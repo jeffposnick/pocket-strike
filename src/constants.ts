@@ -1,13 +1,25 @@
 // World units are roughly 7.7 px per inch across the lane; the lane length is
 // compressed so a roll takes about a second and a half.
 
-/** Lane surface spans x ∈ [-LANE_HALF, LANE_HALF]. 39 boards, like a real lane. */
-export const LANE_HALF = 150;
+/** Regulation lane half-width (Classic). Neon Run uses a wider lane. */
+export const CLASSIC_LANE_HALF = 150;
+export const MEGA_LANE_HALF = 230;
 export const BOARDS = 39;
-export const BOARD_W = (LANE_HALF * 2) / BOARDS;
 export const GUTTER_W = 40;
+
+// The lane width can change between modes. These are `let` exports, so every
+// importing module sees the current value (ES module live bindings).
+/** Lane surface spans x ∈ [-LANE_HALF, LANE_HALF]. 39 boards, like a real lane. */
+export let LANE_HALF = CLASSIC_LANE_HALF;
+export let BOARD_W = (LANE_HALF * 2) / BOARDS;
 /** Outer edge of the gutters / inner face of the kickback walls. */
-export const WALL_X = LANE_HALF + GUTTER_W;
+export let WALL_X = LANE_HALF + GUTTER_W;
+
+export function setLaneHalf(half: number): void {
+  LANE_HALF = half;
+  BOARD_W = (half * 2) / BOARDS;
+  WALL_X = half + GUTTER_W;
+}
 
 export const FOUL_Y = 0;
 export const BALL_START_Y = 150;
@@ -18,7 +30,8 @@ export const PIN_SPACING = 86;
 export const ROW_SPACING = PIN_SPACING * (Math.sqrt(3) / 2);
 export const HEAD_Y = -3300;
 export const DECK_Y = HEAD_Y + 90;
-export const PIT_Y = HEAD_Y - 3 * ROW_SPACING - 70;
+/** Deep enough for the Mega Rack's back row. */
+export const PIT_Y = HEAD_Y - 365;
 export const PIT_DEPTH = 150;
 
 export const BALL_R = 30;
@@ -51,6 +64,10 @@ export interface RackLayout {
   homingLine?: number;
   /** Mega Ball size multiplier. */
   megaScale?: number;
+  /** Lane half-width to use with this rack. */
+  laneHalf?: number;
+  /** How many pins Chain Lightning can zap. */
+  zaps?: number;
 }
 
 /** The regulation 10-pin triangle. */
@@ -58,14 +75,16 @@ export const CLASSIC_RACK: RackLayout = { rows: 4, spacing: PIN_SPACING, pinScal
 /** Neon Run's 55-pin triangle: ten rows of smaller pins that still fit the lane. */
 export const MEGA_RACK: RackLayout = {
   rows: 10,
-  spacing: 31,
-  pinScale: 0.7,
+  spacing: 42,
+  pinScale: 0.75,
   pinMass: 1,
-  fallScale: 0.45,
-  bombRadius: 110,
-  fireBoost: 1.3,
-  homingLine: 60,
-  megaScale: 1.45,
+  fallScale: 0.38,
+  bombRadius: 140,
+  fireBoost: 3,
+  homingLine: 80,
+  megaScale: 1.7,
+  zaps: 8,
+  laneHalf: MEGA_LANE_HALF,
 };
 
 /** Pin home spots in row-major order from the head pin; within a row, bowler's left first. */

@@ -3,6 +3,7 @@ import {
   BALL_MASS,
   BALL_R,
   BALL_START_Y,
+  CLASSIC_LANE_HALF,
   CLASSIC_RACK,
   DECK_Y,
   HEAD_Y,
@@ -13,6 +14,7 @@ import {
   PIN_R,
   PIT_Y,
   rackSpots,
+  setLaneHalf,
   WALL_X,
 } from './constants.ts';
 
@@ -155,6 +157,7 @@ export class Sim {
   /** Switches between the regulation rack and Neon Run's mega rack. */
   setLayout(layout: RackLayout): void {
     this.layout = layout;
+    setLaneHalf(layout.laneHalf ?? CLASSIC_LANE_HALF);
     this.spots = rackSpots(layout);
     const s = layout.pinScale;
     this.pinR = PIN_R * s;
@@ -252,7 +255,7 @@ export class Sim {
     const b = this.ball;
     this.bombUsed = false;
     this.zaps = [];
-    this.zapsLeft = 3;
+    this.zapsLeft = this.layout.zaps ?? 3;
     b.vx = Math.sin(angle) * speed;
     b.vy = -Math.cos(angle) * speed;
     b.spin = spin;

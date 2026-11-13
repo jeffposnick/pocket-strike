@@ -7,6 +7,7 @@ import {
   BOARD_W,
   DECK_Y,
   DOTS_Y,
+  GUTTER_W,
   HEAD_Y,
   LANE_HALF,
   PIN_LEN,
@@ -38,6 +39,13 @@ function hash(a: number, b = 0): number {
   return (h >>> 0) / 4294967296;
 }
 
+const laneCanvases: ex.Canvas[] = [];
+
+/** Redraws the lane after its width changes. */
+export function repaintLane(): void {
+  for (const c of laneCanvases) c.flagDirty();
+}
+
 /** Lane, gutters, pin deck, pit and the neon masking panel, cut into tiles. */
 export function makeLaneTiles(): ex.Actor[] {
   const tiles: ex.Actor[] = [];
@@ -50,6 +58,7 @@ export function makeLaneTiles(): ex.Actor[] {
       cache: true,
       draw: (ctx) => paintLane(ctx, -WORLD_HALF_W, top, w, TILE_H),
     });
+    laneCanvases.push(canvas);
     const a = new ex.Actor({ pos: ex.vec(-WORLD_HALF_W, top), anchor: ex.vec(0, 0), z: 0 });
     a.graphics.use(canvas);
     tiles.push(a);
@@ -312,12 +321,13 @@ function paintLane(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: num
   ctx.restore();
 }
 
-const GUTTER_PX = WALL_X - LANE_HALF;
+const GUTTER_PX = GUTTER_W;
 
 /** Painted pin spots for one rack layout, as an actor laid over the deck. */
 export function makeDeckSpots(layout: RackLayout): ex.Actor {
   const spots = rackSpots(layout);
-  const w = LANE_HALF * 2;
+  const half = layout.laneHalf ?? LANE_HALF;
+  const w = half * 2;
   const top = PIT_Y;
   const h = HEAD_Y + 20 - top;
   const r = 7 * layout.pinScale;
@@ -330,12 +340,12 @@ export function makeDeckSpots(layout: RackLayout): ex.Actor {
       ctx.fillStyle = 'rgba(70,35,10,0.35)';
       for (const p of spots) {
         ctx.beginPath();
-        ctx.arc(p.x + LANE_HALF, p.y - top, r, 0, Math.PI * 2);
+        ctx.arc(p.x + half, p.y - top, r, 0, Math.PI * 2);
         ctx.fill();
       }
     },
   });
-  const a = new ex.Actor({ pos: ex.vec(-LANE_HALF, top), anchor: ex.vec(0, 0), z: 1 });
+  const a = new ex.Actor({ pos: ex.vec(-half, top), anchor: ex.vec(0, 0), z: 1 });
   a.graphics.use(canvas);
   return a;
 }

@@ -15,8 +15,9 @@ Top-down neon lanes, real pin action, ten-frame scoring.
 
 ## Neon Run (roguelike mode)
 
-Six lanes, three frames each, against a **Mega Rack of 55 pins**: a 10-row triangle of smaller pins
-that cascade into each other. Score enough points on each lane to move on. Points are **pins × mult**:
+Six lanes, three frames each, against a **Mega Rack of 55 pins**: a 10-row triangle of pins with room
+between them, on a lane about 50% wider than regulation. The camera zooms out slightly to fit it.
+The best line is about two-thirds of the way out from the centre; edge shots leave plenty standing. Score enough points on each lane to move on. Points are **pins × mult**:
 2 per pin, +10 per special pin. First-ball tiers add mult:
 
 | Tier | Pins down | Mult |

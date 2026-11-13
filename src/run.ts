@@ -79,12 +79,12 @@ export interface Stage {
 }
 
 export const STAGES: Stage[] = [
-  { name: 'Warm-up Lane', target: 420 },
-  { name: 'League Night', target: 620 },
-  { name: 'Slick Lane', target: 820, boss: 'Oil spill: your hook is cut in half', mods: { hookMult: 0.5 } },
-  { name: 'Cosmic Hour', target: 1050 },
-  { name: 'Pro-Am', target: 1300 },
-  { name: 'Iron Pins', target: 1400, boss: 'Iron pins: 35% harder to topple', mods: { fallMult: 1.35 } },
+  { name: 'Warm-up Lane', target: 400 },
+  { name: 'League Night', target: 600 },
+  { name: 'Slick Lane', target: 790, boss: 'Oil spill: your hook is cut in half', mods: { hookMult: 0.5 } },
+  { name: 'Cosmic Hour', target: 1000 },
+  { name: 'Pro-Am', target: 1220 },
+  { name: 'Iron Pins', target: 1330, boss: 'Iron pins: 35% harder to topple', mods: { fallMult: 1.35 } },
 ];
 
 export const POWER_PRICE = 3;
