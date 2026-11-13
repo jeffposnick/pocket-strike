@@ -27,10 +27,9 @@ roguelike "Neon Run" mode with a 55-pin rack.
 - Pushes to `main` deploy to GitHub Pages through GitHub Actions (`.github/workflows/deploy.yml`).
 - Follow Chrome's Modern Web Guidance (https://developer.chrome.com/docs/modern-web-guidance) for all
   HTML, CSS and client-side JS work (not for `src/sim.ts`-style game logic, tooling or the sim tools).
-  Use its `modern-web-guidance` skill if installed (`claude plugin marketplace add
-  GoogleChrome/modern-web-guidance`, then `claude plugin install modern-web-guidance@googlechrome`);
-  otherwise run `npx -y modern-web-guidance@latest search "<2-5 word query>"`, then
-  `retrieve "<id>"`, before writing UI code, and check the result against the guide. See "Web platform"
+  `.claude/settings.json` enables its `modern-web-guidance` plugin: use that skill before writing UI
+  code (if it isn't loaded, run `npx -y modern-web-guidance@latest search "<2-5 word query>"`, then
+  `retrieve "<id>"`), and check the result against the guide. See "Web platform"
   in docs/DEVELOPMENT.md for the patterns already in place.
 - **Browser support:** Baseline Widely available. Newer features are fine as progressive enhancement
   with a small same-origin fallback; never load a polyfill from a CDN, and only bundle one if a guide
