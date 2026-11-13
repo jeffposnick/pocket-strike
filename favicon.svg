@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#2a1d63"/>
+      <stop offset="1" stop-color="#0c0a1f"/>
+    </radialGradient>
+    <linearGradient id="pin" x1="0" x2="1">
+      <stop offset="0" stop-color="#cfc9e6"/>
+      <stop offset="0.35" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#b3acd0"/>
+    </linearGradient>
+    <radialGradient id="ball" cx="35%" cy="30%" r="75%">
+      <stop offset="0" stop-color="#ff9ad5"/>
+      <stop offset="0.35" stop-color="#f107a3"/>
+      <stop offset="1" stop-color="#5b1aa8"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Full-bleed background so the maskable crop works; content stays inside the safe circle. -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Neon lane lines -->
+  <path d="M150 512 L218 96 M362 512 L294 96" stroke="#38f3ff" stroke-width="6" stroke-linecap="round" filter="url(#glow)" opacity="0.9"/>
+  <!-- Pin -->
+  <g filter="url(#glow)">
+    <path d="M256 92
+             C 280 92 290 112 286 134
+             C 283 150 274 160 272 174
+             C 270 188 292 206 304 236
+             C 318 272 312 312 296 338
+             C 288 352 282 362 280 372
+             L 232 372
+             C 230 362 224 352 216 338
+             C 200 312 194 272 208 236
+             C 220 206 242 188 240 174
+             C 238 160 229 150 226 134
+             C 222 112 232 92 256 92 Z"
+          fill="url(#pin)" stroke="#ff3fa4" stroke-width="5"/>
+    <rect x="236" y="168" width="40" height="9" rx="3" fill="#ff3fa4"/>
+    <rect x="234" y="184" width="44" height="9" rx="3" fill="#ff3fa4"/>
+  </g>
+  <!-- Ball -->
+  <g filter="url(#glow)">
+    <circle cx="300" cy="370" r="64" fill="url(#ball)" stroke="#ffc84a" stroke-width="5"/>
+    <circle cx="284" cy="350" r="9" fill="#1a0b26"/>
+    <circle cx="310" cy="345" r="9" fill="#1a0b26"/>
+    <circle cx="300" cy="378" r="11" fill="#1a0b26"/>
+  </g>
+</svg>
