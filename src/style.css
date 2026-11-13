@@ -27,14 +27,31 @@ body {
   background: var(--night);
   touch-action: none;
   overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Only the play surface and HUD chrome block selection and the iOS callout (a long press there is
+   part of a throw). Menu and result text stays selectable. */
+#game,
+#hud,
+button {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
 }
 
 #game {
   display: block;
+}
+
+/* Visually hidden, still read by screen readers. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 button {
@@ -44,7 +61,8 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible + span {
+input:focus-visible + span,
+.ballPick:has(:focus-visible) {
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
 }
@@ -135,7 +153,9 @@ header {
 }
 
 .marks span.pop {
-  animation: pop 0.45s cubic-bezier(0.2, 1.8, 0.4, 1);
+  @media (prefers-reduced-motion: no-preference) {
+    animation: pop 0.45s cubic-bezier(0.2, 1.8, 0.4, 1);
+  }
 }
 
 @keyframes pop {
@@ -313,6 +333,20 @@ header {
 
 #banner.show {
   animation: banner-in 0.55s cubic-bezier(0.18, 1.6, 0.4, 1) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    /* Same end state, without the zoom and spin. */
+    animation-name: fade-in;
+    animation-duration: 0.25s;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 #bannerText {
@@ -439,7 +473,9 @@ header {
   border-radius: 50%;
   border: 3px solid #fff;
   box-shadow: 0 0 14px var(--pink);
-  animation: flick 2.2s ease-in-out infinite;
+  @media (prefers-reduced-motion: no-preference) {
+    animation: flick 2.2s ease-in-out infinite;
+  }
 }
 
 @keyframes flick {
@@ -472,17 +508,38 @@ header {
 
 /* ---------- Overlays ---------- */
 
-.overlay {
+/* Overlays are full-screen modal <dialog>s; the dialog itself draws the dimmed backdrop. */
+dialog.overlay {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
     max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   background: radial-gradient(ellipse at 50% 30%, rgba(155, 107, 255, 0.25), rgba(8, 6, 22, 0.85) 70%);
   backdrop-filter: blur(4px);
   overflow: auto;
   touch-action: pan-y;
+}
+
+dialog.overlay[open] {
+  display: grid;
+  place-items: center;
+}
+
+dialog.overlay:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.overlay::backdrop {
+  background: transparent;
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .card {
@@ -497,6 +554,8 @@ header {
 }
 
 .logo {
+  margin: 0;
+  font-weight: 400;
   font-family: var(--display);
   line-height: 0.9;
   display: grid;
@@ -507,7 +566,9 @@ header {
   font-size: 44px;
   color: var(--cyan);
   text-shadow: 0 0 10px var(--cyan), 0 0 30px rgba(56, 243, 255, 0.6);
-  animation: buzz 4s infinite;
+  @media (prefers-reduced-motion: no-preference) {
+    animation: buzz 4s infinite;
+  }
 }
 
 .logo span:last-child {
@@ -545,14 +606,29 @@ header {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 10px;
+  font-weight: 400;
+  margin: 0 0 10px;
 }
 
 #balls {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin-bottom: 16px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+#balls legend {
+  grid-column: 1 / -1;
+  padding: 0;
+}
+
+.ballPick input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .ballPick {
@@ -565,6 +641,7 @@ header {
   background: rgba(255, 255, 255, 0.04);
   font-size: 11px;
   color: var(--muted);
+  cursor: pointer;
 }
 
 .ballPick i {
@@ -576,13 +653,13 @@ header {
   transition: transform 0.2s;
 }
 
-.ballPick.on {
+.ballPick:has(:checked) {
   border-color: var(--pink);
   background: rgba(255, 63, 164, 0.12);
   color: var(--ink);
 }
 
-.ballPick.on i {
+.ballPick:has(:checked) i {
   transform: scale(1.12) rotate(20deg);
 }
 
@@ -732,13 +809,6 @@ header {
   color: var(--amber);
   text-shadow: 0 0 10px rgba(255, 200, 74, 0.7);
   font-weight: 800;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hand,
-  .logo span:first-child {
-    animation: none;
-  }
 }
 
 /* ---------- Neon Run (roguelike) ---------- */
@@ -929,7 +999,9 @@ body.run-mode #boardNo {
   transform: translateY(-6px) scale(1.08);
   background: color-mix(in srgb, var(--c) 30%, #100c28);
   box-shadow: 0 0 22px var(--c), 0 0 0 2px #fff;
-  animation: armed 0.9s ease-in-out infinite alternate;
+  @media (prefers-reduced-motion: no-preference) {
+    animation: armed 0.9s ease-in-out infinite alternate;
+  }
 }
 
 @keyframes armed {
@@ -953,6 +1025,9 @@ body:not(.run-mode) #points {
 
 #points.show {
   animation: pts 1.6s ease-out forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation-name: pts-fade;
+  }
 }
 
 #points .chips {
@@ -965,6 +1040,17 @@ body:not(.run-mode) #points {
 
 #points b {
   color: var(--amber);
+}
+
+@keyframes pts-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  15%,
+  80% {
+    opacity: 1;
+  }
 }
 
 @keyframes pts {
@@ -998,6 +1084,9 @@ body:not(.run-mode) #points {
   white-space: nowrap;
   text-shadow: 0 0 10px currentColor, 0 2px 4px rgba(0, 0, 0, 0.9);
   animation: floatUp 1.4s ease-out forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation-name: pts-fade;
+  }
 }
 
 @keyframes floatUp {
@@ -1019,7 +1108,7 @@ body:not(.run-mode) #points {
   width: min(460px, 100%);
 }
 
-.card h2 {
+#shopTitle {
   margin: 0 0 8px;
   font-family: var(--display);
   font-weight: 400;
@@ -1176,6 +1265,8 @@ body:not(.run-mode) #points {
 }
 
 #roTitle {
+  margin: 0;
+  font-weight: 400;
   font-family: var(--display);
   font-size: 44px;
   color: var(--pink);
@@ -1267,13 +1358,16 @@ body:not(.run-mode) #points {
   color: var(--ink);
 }
 
+/* A manual popover, so it sits in the top layer above the HUD. Browsers without the Popover API
+   get the .open class from src/pwa.ts instead. */
 #pwaPill {
   position: fixed;
-  left: 50%;
-  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 70px);
+  inset: auto auto calc(max(12px, env(safe-area-inset-bottom)) + 70px) 50%;
+  margin: 0;
   transform: translateX(-50%);
   z-index: 20;
-  display: flex;
+  display: none;
+  color: inherit;
   align-items: center;
   gap: 10px;
   width: max-content;
@@ -1284,11 +1378,23 @@ body:not(.run-mode) #points {
   background: var(--panel);
   box-shadow: 0 0 18px rgba(56, 243, 255, 0.35);
   font-size: 13px;
-  animation: pill-in 0.3s ease-out;
+  @media (prefers-reduced-motion: no-preference) {
+    animation: pill-in 0.3s ease-out;
+  }
 }
 
-#pwaPill[hidden] {
-  display: none;
+#pwaPill:is(:popover-open, .open) {
+  display: flex;
+}
+
+#pwaClose {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
 }
 
 #pwaAction {

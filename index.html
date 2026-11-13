@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0c0a1f" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -18,87 +18,90 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   </head>
   <body>
-    <canvas id="game"></canvas>
+    <main>
+      <h1 class="vh">Pocket Strike</h1>
+      <canvas id="game"></canvas>
 
-    <div id="hud">
-      <header>
-        <div id="board" aria-label="Scoreboard"></div>
-        <div id="runbar">
-          <div class="rtop"><span id="stageName">Stage 1</span><span id="coins">🪙 0</span></div>
-          <div class="prog"><div id="progFill"></div><span id="progText">0 / 160</span></div>
-          <div class="rbot"><span id="frameDots"></span><span id="perkRow"></span></div>
-        </div>
-        <div class="row">
-          <div id="rack" aria-label="Pins standing"></div>
-          <div class="mid">
-            <div id="status">Frame 1 · Ball 1</div>
-            <div id="totalWrap">Score <b id="total">0</b></div>
+      <div id="hud">
+        <header>
+          <div id="board" role="group" aria-label="Scoreboard"></div>
+          <div id="runbar">
+            <div class="rtop"><span id="stageName">Stage 1</span><span id="coins">🪙 0</span></div>
+            <div class="prog"><div id="progFill"></div><span id="progText">0 / 160</span></div>
+            <div class="rbot"><span id="frameDots"></span><span id="perkRow"></span></div>
           </div>
-          <div class="btns">
-            <button id="mute" aria-label="Mute">🔊</button>
-            <button id="menuBtn" aria-label="Menu">☰</button>
+          <div class="row">
+            <div id="rack" role="img" aria-label="Pins standing"></div>
+            <div class="mid">
+              <div id="status">Frame 1 · Ball 1</div>
+              <div id="totalWrap">Score <b id="total">0</b></div>
+            </div>
+            <div class="btns">
+              <button id="mute" aria-label="Mute">🔊</button>
+              <button id="menuBtn" aria-label="Menu">☰</button>
+            </div>
           </div>
+        </header>
+
+        <div id="throw"></div>
+        <div id="boardNo">Board 20</div>
+
+        <div id="banner">
+          <div id="bannerText">STRIKE!</div>
+          <div id="bannerSub"></div>
+          <div id="points"></div>
         </div>
-      </header>
+        <div id="floats"></div>
 
-      <div id="throw"></div>
-      <div id="boardNo">Board 20</div>
+        <div id="invWrap">
+          <div id="invLabel"></div>
+          <div id="inv"></div>
+        </div>
 
-      <div id="banner">
-        <div id="bannerText">STRIKE!</div>
-        <div id="bannerSub"></div>
-        <div id="points"></div>
+        <div id="hint">
+          <div class="hand"></div>
+          <p><b>Slide</b> to line up · <b>Flick up</b> to bowl<br />Curve the flick to <b>hook</b> the ball</p>
+        </div>
       </div>
-      <div id="floats"></div>
-
-      <div id="invWrap">
-        <div id="invLabel"></div>
-        <div id="inv"></div>
-      </div>
-
-      <div id="hint">
-        <div class="hand"></div>
-        <p><b>Slide</b> to line up · <b>Flick up</b> to bowl<br />Curve the flick to <b>hook</b> the ball</p>
-      </div>
-    </div>
+    </main>
     <div id="flash"></div>
 
-    <div id="menu" class="overlay" hidden>
+    <dialog id="menu" class="overlay" aria-labelledby="menuTitle">
       <div class="card">
-        <div class="logo"><span>POCKET</span><span>STRIKE</span></div>
+        <h2 class="logo" id="menuTitle"><span>POCKET</span><span>STRIKE</span></h2>
         <p class="tag">Neon lanes. Glowing pins. Find the pocket.</p>
-        <div class="label">Pick your ball</div>
-        <div id="balls"></div>
+        <fieldset id="balls"><legend class="label">Pick your ball</legend></fieldset>
         <button id="playRun" class="cta">Neon Run</button>
         <p class="modeNote">Roguelike: 6 lanes, power-up pins, perks and boss lanes.</p>
         <button id="play" class="ghost">Classic 10 frames</button>
-        <label class="toggle"><input type="checkbox" id="bumpers" /><span></span>Bumpers in Classic</label>
+        <label class="toggle"><input type="checkbox" id="bumpers" switch role="switch" /><span></span>Bumpers in Classic</label>
         <ul class="how">
           <li><b>Slide</b> your finger sideways to line up the ball.</li>
           <li><b>Flick up</b>: a faster flick means a faster ball.</li>
           <li><b>Curve</b> the flick to add hook. Aim between the 1 and 3 pins.</li>
         </ul>
         <div id="menuBest"></div>
+        <button id="updateBtn" class="ghost install" hidden>Update to the new version</button>
         <button id="installBtn" class="ghost install" hidden>Install app</button>
         <p id="iosHint" class="iosHint" hidden>To install: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
       </div>
-    </div>
+    </dialog>
 
-    <div id="over" class="overlay" hidden>
+    <dialog id="over" class="overlay" aria-labelledby="overTitle">
       <div class="card">
-        <div class="label">Final score</div>
+        <h2 class="label" id="overTitle">Final score</h2>
         <div id="finalScore">0</div>
         <div id="finalRating"></div>
         <div id="finalStats"></div>
         <div id="finalBest"></div>
-        <button id="again" class="cta">Bowl again</button>
+        <button id="again" class="cta" autofocus>Bowl again</button>
         <button id="toMenu" class="ghost">Change ball</button>
       </div>
-    </div>
+    </dialog>
 
-    <div id="shop" class="overlay" hidden>
+    <dialog id="shop" class="overlay" aria-labelledby="shopTitle">
       <div class="card wide">
-        <div class="label">Lane cleared</div>
+        <p class="label">Lane cleared</p>
         <h2 id="shopTitle">Warm-up Lane cleared!</h2>
         <div class="shopMeta"><span id="shopScore"></span><span id="shopCoins">🪙 0</span></div>
         <div id="shopReward"></div>
@@ -110,24 +113,26 @@
         <div id="shopNext"></div>
         <button id="shopGo" class="cta">Next lane ▸</button>
       </div>
-    </div>
+    </dialog>
 
-    <div id="runover" class="overlay" hidden>
+    <dialog id="runover" class="overlay" aria-labelledby="roTitle">
       <div class="card">
-        <div id="roTitle">RUN OVER</div>
+        <h2 id="roTitle">RUN OVER</h2>
         <div id="roSub"></div>
         <div id="roStats"></div>
         <div id="roPerks"></div>
         <div id="roBest"></div>
-        <button id="roAgain" class="cta">New run</button>
+        <button id="roAgain" class="cta" autofocus>New run</button>
         <button id="roMenu" class="ghost">Menu</button>
       </div>
-    </div>
+    </dialog>
 
-    <div id="pwaPill" role="status" aria-live="polite" hidden>
+    <div id="pwaPill" popover="manual" role="region" aria-label="Notifications">
       <span id="pwaText"></span>
       <button id="pwaAction" hidden>Update</button>
+      <button id="pwaClose" aria-label="Dismiss">✕</button>
     </div>
+    <div id="announcer" class="vh" aria-live="polite"></div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
