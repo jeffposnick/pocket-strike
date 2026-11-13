@@ -55,15 +55,25 @@ Branch: `gh-pages` / root.** The site is then at `https://<owner>.github.io/pock
 
 ## PWA (offline + installable)
 
-`vite-plugin-pwa` (configured in `vite.config.ts`) generates a Workbox service worker (`dist/sw.js`) and
-`manifest.webmanifest` at build time.
+`vite-plugin-pwa` (configured in `vite.config.ts`) builds the service worker and `manifest.webmanifest`.
+
+- **The service worker is our own code:** `src/sw.ts`, built with the `injectManifest` strategy. It uses
+  Workbox's runtime from [`@vite-pwa/workbox-swkit`](https://github.com/vite-pwa/workbox/tree/main/packages/swkit),
+  the consolidated ESM build of the Workbox service worker libraries.
+  - Import from its subpath exports (`@vite-pwa/workbox-swkit/precaching`, `/routing`, `/core`). The
+    package's barrel file is only meant for `@vite-pwa/workbox-build`.
+  - The build bundles `src/sw.ts` into a single classic script (`dist/sw.js`, about 17 KB, 6 KB
+    gzipped) and injects the precache list in place of `self.__WB_MANIFEST`.
+  - It precaches with swkit's `parallel` option (4 at a time), serves `index.html` for navigations,
+    claims clients on first install, and calls `skipWaiting()` only when the page sends
+    `{ type: 'SKIP_WAITING' }`.
 
 - **Offline:** everything the game needs is precached (JS, CSS, HTML, the self-hosted woff2 fonts,
   icons), about 700 KB in 15 files. Fonts come from `@fontsource/*` rather than Google Fonts, so
   nothing loads from another origin at runtime.
-- **Updates:** `registerType: 'prompt'`. A new build installs in the background, and `src/pwa.ts`
-  shows an "Update" pill; nothing reloads until the player taps it, so an update never interrupts a
-  game. Besides the browser's own check on navigation, `src/pwa.ts` calls `registration.update()` on
+- **Updates:** `registerType: 'prompt'`. A new build installs in the background and waits; `src/pwa.ts`
+  shows an "Update" pill, and nothing reloads until the player taps it (which sends `SKIP_WAITING`), so
+  an update never interrupts a game. Besides the browser's own check on navigation, `src/pwa.ts` calls `registration.update()` on
   startup, whenever the app returns to the foreground, and hourly. An installed game can stay open
   for days, and the navigation check alone proved unreliable in testing.
 - **Install:** Chromium's `beforeinstallprompt` is captured and shown as an "Install app" button in

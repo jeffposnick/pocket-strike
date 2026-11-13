@@ -14,6 +14,11 @@ export default defineConfig({
       // (src/pwa.ts), so an update can't interrupt a game in progress.
       registerType: 'prompt',
       injectRegister: false,
+      // Our own service worker (src/sw.ts), written against @vite-pwa/workbox-swkit.
+      // The build bundles it and injects the precache manifest into it.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
         id: './',
@@ -38,12 +43,14 @@ export default defineConfig({
           { src: 'screenshots/neon-run.png', sizes: '780x1688', type: 'image/png', form_factor: 'narrow', label: 'Neon Run: 55 pins and power-ups' },
         ],
       },
-      workbox: {
+      injectManifest: {
         // Everything the game needs is precached, so it plays fully offline.
-        // Screenshots are only for the install dialog, so they're left out.
+        // The plugin adds the icons and manifest; screenshots are only for the
+        // install dialog, so they're left out.
         globPatterns: ['**/*.{js,css,html,woff2}'],
         globIgnores: ['screenshots/**'],
-        cleanupOutdatedCaches: true,
+        // A single self-contained classic script: no module workers needed.
+        rollupFormat: 'iife',
       },
     }),
   ],

@@ -42,6 +42,7 @@ src/
   hud.ts         HTML overlay: scoreboard, run bar, banners, menus, shop
   audio.ts       Web Audio synth effects (no audio files)
   pwa.ts         Service worker registration, install button, update prompt
+  sw.ts          The service worker (Workbox runtime via @vite-pwa/workbox-swkit)
   style.css      HUD and menu styles
 tools/sim/       Headless simulations and tests that import src/ directly
 ```
