@@ -1,23 +1,26 @@
 name: Deploy to GitHub Pages
 
-# Every push to main (including merged pull requests) builds the game and
-# publishes dist/ to the gh-pages branch. Pages must be set to serve from
-# that branch: Settings → Pages → Deploy from a branch → gh-pages / (root).
+# Every push to main (including merged pull requests) tests and builds the game,
+# then deploys dist/ with GitHub Pages' own Actions deployment.
+# Requires Settings → Pages → Build and deployment → Source: GitHub Actions.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
-# Only the newest push deploys; an older run still in progress is cancelled.
+# One deployment at a time. A queued run waits rather than cancelling one
+# that's mid-deploy, so a deployment is never left half-finished.
 concurrency:
-  group: deploy-gh-pages
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,14 +38,20 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish dist/ to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - uses: actions/configure-pages@v5
+
+      - name: Upload dist/ as the Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: gh-pages
-          # Keep gh-pages to a single commit holding the latest build.
-          force_orphan: true
-          user_name: github-actions[bot]
-          user_email: 41898282+github-actions[bot]@users.noreply.github.com
-          commit_message: Deploy ${{ github.sha }}
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

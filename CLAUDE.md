@@ -24,7 +24,7 @@ roguelike "Neon Run" mode with a 55-pin rack.
   the sim tools run under Node's type stripping.
 - After changing physics or balance, run `npm run sim:pinfall` / `npm run sim:balance` and update the
   tables in `docs/PHYSICS.md` / `docs/NEON-RUN.md`.
-- Pushes to `main` deploy to GitHub Pages via the `gh-pages` branch.
+- Pushes to `main` deploy to GitHub Pages through GitHub Actions (`.github/workflows/deploy.yml`).
 - It's a PWA (`vite-plugin-pwa`, injectManifest; the service worker is `src/sw.ts` on
   `@vite-pwa/workbox-swkit`, imported via subpath exports only). Keep every runtime asset same-origin and bundled so it stays
   offline-capable; no CDN fonts or scripts. After changing PWA behaviour, run `tools/pwa-check.cjs`

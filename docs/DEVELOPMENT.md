@@ -45,11 +45,18 @@ When automating with Playwright:
 
 ## Deployment
 
-Every push to `main` (including merged pull requests) runs `.github/workflows/deploy.yml`:
-install, test, build, then publish `dist/` to the `gh-pages` branch.
+Every push to `main` (including merged pull requests) runs `.github/workflows/deploy.yml`. It can also
+be run by hand from the Actions tab.
 
-One-time repo setting: **Settings → Pages → Build and deployment → Source: Deploy from a branch,
-Branch: `gh-pages` / root.** The site is then at `https://<owner>.github.io/pocket-strike/`.
+1. **build:** install, `npm test`, `npm run build`, then upload `dist/` as the Pages artifact
+   (`actions/upload-pages-artifact`).
+2. **deploy:** publish that artifact with `actions/deploy-pages` to the `github-pages` environment.
+
+If a test fails, nothing deploys. Deployments run one at a time; a newer push waits for the current one
+to finish rather than cancelling it.
+
+One-time repo setting: **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+The site is then at `https://<owner>.github.io/pocket-strike/`.
 
 `vite.config.ts` sets `base: './'` so the build works from any sub-path.
 
