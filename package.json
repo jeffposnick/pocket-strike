@@ -6,7 +6,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "test": "node tools/sim/scoring.test.ts && node tools/sim/settle.ts",
+    "sim:pinfall": "node tools/sim/pinfall.ts",
+    "sim:balance": "node tools/sim/run-balance.ts"
   },
   "dependencies": {
     "excalibur": "^1.0.1"
@@ -16,5 +19,8 @@
     "vite": "^8.3.8"
   },
   "type": "module",
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22.18"
+  }
 }
