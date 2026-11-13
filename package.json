@@ -1,0 +1,20 @@
+{
+  "name": "pocket-strike",
+  "version": "1.0.0",
+  "description": "A touch-first 2D bowling game built with Excalibur",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "excalibur": "^1.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  },
+  "type": "module",
+  "private": true
+}

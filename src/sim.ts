@@ -1,0 +1,451 @@
+import {
+  BALL_MASS,
+  BALL_R,
+  BALL_START_Y,
+  DECK_Y,
+  HEAD_Y,
+  HOOK,
+  LANE_HALF,
+  PIN_LEN,
+  PIN_MASS,
+  PIN_R,
+  PIN_SPOTS,
+  PIT_Y,
+  WALL_X,
+} from './constants.ts';
+
+export type PinState = 'standing' | 'down' | 'pit' | 'cleared';
+
+export interface Pin {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  angle: number;
+  av: number;
+  state: PinState;
+  /** 0..1, how hard a standing pin is rocking. */
+  wobble: number;
+  /** Seconds since the pin went down (drives the topple animation). */
+  downT: number;
+  /** Seconds since it dropped into the pit. */
+  pitT: number;
+}
+
+export interface Ball {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  spin: number;
+  rolling: boolean;
+  gutter: boolean;
+  inPit: boolean;
+  pitT: number;
+  /** Visual rotation. */
+  rot: number;
+}
+
+export type SimEvent =
+  | { type: 'ballPin'; x: number; y: number; power: number }
+  | { type: 'pinPin'; x: number; y: number; power: number }
+  | { type: 'wall'; x: number; y: number; power: number }
+  | { type: 'gutter'; x: number; y: number }
+  | { type: 'bumper'; x: number; y: number; power: number }
+  | { type: 'pit'; x: number; y: number };
+
+/** Δv a standing pin must take to go down; softer knocks just make it wobble. */
+export const TUNE = { fallDv: 220, downFriction: 2.2, pinE: 0.6, ballE: 0.55 };
+const PIN_I = (PIN_MASS * PIN_LEN * PIN_LEN) / 12;
+const STEP = 1 / 300;
+/** A fallen pin collides as three circles along its length. */
+const SEG_OFFSETS = [-PIN_LEN * 0.34, 0, PIN_LEN * 0.34];
+const SEG_R = 15;
+
+type Rand = () => number;
+
+interface BodyRef {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  av: number;
+  invM: number;
+  invI: number;
+}
+
+export class Sim {
+  readonly pins: Pin[] = [];
+  readonly ball: Ball = {
+    x: 0,
+    y: BALL_START_Y,
+    vx: 0,
+    vy: 0,
+    spin: 0,
+    rolling: false,
+    gutter: false,
+    inPit: false,
+    pitT: 0,
+    rot: 0,
+  };
+  events: SimEvent[] = [];
+  bumpers = false;
+  /** True once the ball has touched any pin on this roll. */
+  contact = false;
+  rollTime = 0;
+  private readonly rand: Rand;
+
+  constructor(rand: Rand = Math.random) {
+    this.rand = rand;
+    for (let i = 0; i < 10; i++) {
+      this.pins.push({
+        id: i + 1,
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        angle: 0,
+        av: 0,
+        state: 'standing',
+        wobble: 0,
+        downT: 0,
+        pitT: 0,
+      });
+    }
+    this.resetRack();
+  }
+
+  resetRack(): void {
+    this.pins.forEach((p, i) => {
+      Object.assign(p, {
+        x: PIN_SPOTS[i].x,
+        y: PIN_SPOTS[i].y,
+        vx: 0,
+        vy: 0,
+        angle: 0,
+        av: 0,
+        state: 'standing' as PinState,
+        wobble: 0,
+        downT: 0,
+        pitT: 0,
+      });
+    });
+  }
+
+  /** Removes everything that isn't standing, as the sweep bar does. */
+  clearDeadwood(): void {
+    for (const p of this.pins) {
+      if (p.state !== 'standing') p.state = 'cleared';
+      p.vx = p.vy = p.av = 0;
+      p.wobble = 0;
+    }
+  }
+
+  standing(): Pin[] {
+    return this.pins.filter((p) => p.state === 'standing');
+  }
+
+  placeBall(x: number): void {
+    Object.assign(this.ball, {
+      x,
+      y: BALL_START_Y,
+      vx: 0,
+      vy: 0,
+      spin: 0,
+      rolling: false,
+      gutter: false,
+      inPit: false,
+      pitT: 0,
+    });
+  }
+
+  launch(speed: number, angle: number, spin: number): void {
+    const b = this.ball;
+    b.vx = Math.sin(angle) * speed;
+    b.vy = -Math.cos(angle) * speed;
+    b.spin = spin;
+    b.rolling = true;
+    this.contact = false;
+    this.rollTime = 0;
+  }
+
+  step(dt: number): void {
+    const n = Math.max(1, Math.ceil(dt / STEP));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) this.substep(h);
+    this.rollTime += dt;
+  }
+
+  /** Everything has come to rest (or the roll has gone on long enough). */
+  settled(): boolean {
+    const b = this.ball;
+    const ballDone = !b.rolling || b.inPit || Math.hypot(b.vx, b.vy) < 15;
+    if (!ballDone) return false;
+    if (this.rollTime > 7 || (b.inPit && b.pitT > 2.2)) return true;
+    return this.pins.every(
+      (p) =>
+        p.state === 'cleared' ||
+        p.state === 'pit' ||
+        (p.state === 'standing' && p.wobble < 0.08) ||
+        (p.state === 'down' && Math.hypot(p.vx, p.vy) < 25 && Math.abs(p.av) < 1 && p.downT > 0.4),
+    );
+  }
+
+  private substep(h: number): void {
+    const b = this.ball;
+
+    // ---- Ball
+    if (b.rolling && !b.inPit) {
+      if (!b.gutter) {
+        // Oil up front, dry back end: the ball skids, then hooks.
+        const progress = -b.y / -HEAD_Y;
+        const grip = Math.max(0, Math.min(1, (progress - 0.3) / 0.4));
+        b.vx += b.spin * HOOK * grip * h;
+      }
+      const drag = Math.exp(-0.04 * h);
+      b.vx *= drag;
+      b.vy *= drag;
+      b.x += b.vx * h;
+      b.y += b.vy * h;
+      b.rot += (Math.hypot(b.vx, b.vy) / BALL_R) * h * 0.18 + b.spin * h * 5;
+
+      if (!b.gutter && b.y > DECK_Y) {
+        if (this.bumpers) {
+          const lim = LANE_HALF - BALL_R + 6;
+          if (Math.abs(b.x) > lim) {
+            const s = Math.sign(b.x);
+            b.x = s * lim;
+            this.events.push({ type: 'bumper', x: b.x, y: b.y, power: Math.abs(b.vx) });
+            b.vx = -s * Math.abs(b.vx) * 0.45;
+            b.spin *= 0.4;
+          }
+        } else if (Math.abs(b.x) > LANE_HALF + 4) {
+          b.gutter = true;
+          b.spin = 0;
+          b.vx = 0;
+          b.x = Math.sign(b.x) * (LANE_HALF + GUTTER_MID);
+          this.events.push({ type: 'gutter', x: b.x, y: b.y });
+        }
+      }
+      if (!b.gutter && b.y <= DECK_Y && Math.abs(b.x) > WALL_X - BALL_R) {
+        const s = Math.sign(b.x);
+        b.x = s * (WALL_X - BALL_R);
+        b.vx = -s * Math.abs(b.vx) * 0.4;
+      }
+      if (b.y < PIT_Y - BALL_R * 0.4) {
+        b.inPit = true;
+        this.events.push({ type: 'pit', x: b.x, y: b.y });
+      }
+    }
+    if (b.inPit) b.pitT += h;
+
+    // ---- Pins
+    for (const p of this.pins) {
+      if (p.state === 'standing') {
+        const k = Math.exp(-14 * h);
+        p.vx *= k;
+        p.vy *= k;
+        p.x += p.vx * h;
+        p.y += p.vy * h;
+        p.wobble *= Math.exp(-2.2 * h);
+      } else if (p.state === 'down') {
+        p.downT += h;
+        const k = Math.exp(-TUNE.downFriction * h);
+        p.vx *= k;
+        p.vy *= k;
+        p.av *= Math.exp(-1.8 * h);
+        p.x += p.vx * h;
+        p.y += p.vy * h;
+        p.angle += p.av * h;
+        // Kickbacks and the lane edge.
+        for (const off of SEG_OFFSETS) {
+          const ex = p.x + Math.cos(p.angle) * off;
+          if (Math.abs(ex) > WALL_X - SEG_R) {
+            const s = Math.sign(ex);
+            const push = Math.abs(ex) - (WALL_X - SEG_R);
+            p.x -= s * push;
+            if (Math.sign(p.vx) === s) {
+              this.events.push({ type: 'wall', x: ex, y: p.y, power: Math.abs(p.vx) });
+              p.vx = -p.vx * 0.55;
+              p.av += -s * off * 0.004 * Math.abs(p.vx) * 0.1;
+            }
+          }
+        }
+      } else if (p.state === 'pit') {
+        p.pitT += h;
+      }
+      if ((p.state === 'standing' || p.state === 'down') && p.y < PIT_Y) {
+        p.state = 'pit';
+        p.pitT = 0;
+        this.events.push({ type: 'pit', x: p.x, y: p.y });
+      }
+    }
+
+    // ---- Collisions
+    if (b.rolling && !b.gutter && !b.inPit) {
+      for (const p of this.pins) {
+        if (p.state === 'standing' || p.state === 'down') this.collideBallPin(p);
+      }
+    }
+    for (let i = 0; i < this.pins.length; i++) {
+      const a = this.pins[i];
+      if (a.state !== 'standing' && a.state !== 'down') continue;
+      for (let j = i + 1; j < this.pins.length; j++) {
+        const c = this.pins[j];
+        if (c.state !== 'standing' && c.state !== 'down') continue;
+        if (a.state === 'standing' && c.state === 'standing') {
+          // Two standing pins only interact if one has been shoved into the other.
+          if (Math.hypot(a.vx, a.vy) + Math.hypot(c.vx, c.vy) < 5) continue;
+        }
+        this.collidePins(a, c);
+      }
+    }
+  }
+
+  private circles(p: Pin): { x: number; y: number; r: number }[] {
+    if (p.state === 'standing') return [{ x: p.x, y: p.y, r: PIN_R }];
+    const cx = Math.cos(p.angle);
+    const sy = Math.sin(p.angle);
+    return SEG_OFFSETS.map((o) => ({ x: p.x + cx * o, y: p.y + sy * o, r: SEG_R }));
+  }
+
+  private collideBallPin(p: Pin): void {
+    const b = this.ball;
+    for (const c of this.circles(p)) {
+      const dx = c.x - b.x;
+      const dy = c.y - b.y;
+      const d = Math.hypot(dx, dy);
+      const min = BALL_R + c.r;
+      if (d >= min || d === 0) continue;
+      const ballRef: BodyRef = { x: b.x, y: b.y, vx: b.vx, vy: b.vy, av: 0, invM: 1 / BALL_MASS, invI: 0 };
+      const pinRef = this.pinRef(p);
+      const dv = resolve(ballRef, pinRef, c.x - (dx / d) * c.r, c.y - (dy / d) * c.r, dx / d, dy / d, min - d, TUNE.ballE);
+      b.x = ballRef.x;
+      b.y = ballRef.y;
+      b.vx = ballRef.vx;
+      b.vy = ballRef.vy;
+      this.applyRef(p, pinRef);
+      if (dv > 20) {
+        this.events.push({ type: 'ballPin', x: c.x, y: c.y, power: dv });
+        this.contact = true;
+      }
+      this.afterHit(p, dv, dx / d, dy / d);
+      return;
+    }
+  }
+
+  private collidePins(a: Pin, c: Pin): void {
+    for (const ca of this.circles(a)) {
+      for (const cc of this.circles(c)) {
+        const dx = cc.x - ca.x;
+        const dy = cc.y - ca.y;
+        const d = Math.hypot(dx, dy);
+        const min = ca.r + cc.r;
+        if (d >= min || d === 0) continue;
+        const nx = dx / d;
+        const ny = dy / d;
+        const ra = this.pinRef(a);
+        const rc = this.pinRef(c);
+        const dv = resolve(ra, rc, ca.x + nx * ca.r, ca.y + ny * ca.r, nx, ny, min - d, TUNE.pinE);
+        const aWasStanding = a.state === 'standing';
+        const cWasStanding = c.state === 'standing';
+        this.applyRef(a, ra);
+        this.applyRef(c, rc);
+        if (dv > 25) this.events.push({ type: 'pinPin', x: ca.x + nx * ca.r, y: ca.y + ny * ca.r, power: dv });
+        if (aWasStanding) this.afterHit(a, dv * (c.state === 'standing' ? 0.6 : 1), -nx, -ny);
+        if (cWasStanding) this.afterHit(c, dv * (a.state === 'standing' ? 0.6 : 1), nx, ny);
+        return;
+      }
+    }
+  }
+
+  private pinRef(p: Pin): BodyRef {
+    const standing = p.state === 'standing';
+    return {
+      x: p.x,
+      y: p.y,
+      vx: p.vx,
+      vy: p.vy,
+      av: p.av,
+      invM: 1 / PIN_MASS,
+      invI: standing ? 0 : 1 / PIN_I,
+    };
+  }
+
+  private applyRef(p: Pin, r: BodyRef): void {
+    p.x = r.x;
+    p.y = r.y;
+    p.vx = r.vx;
+    p.vy = r.vy;
+    if (p.state === 'down') p.av = r.av;
+  }
+
+  /** Decides whether a standing pin that just got hit topples or just rocks. */
+  private afterHit(p: Pin, dv: number, nx: number, ny: number): void {
+    if (p.state !== 'standing') return;
+    if (dv > TUNE.fallDv * (0.85 + this.rand() * 0.3)) {
+      p.state = 'down';
+      p.downT = 0;
+      const speed = Math.hypot(p.vx, p.vy);
+      // A little chaos so no two racks fall the same way.
+      const jitter = (this.rand() - 0.5) * 0.5;
+      const dir = Math.atan2(p.vy, p.vx) + jitter;
+      p.vx = Math.cos(dir) * speed;
+      p.vy = Math.sin(dir) * speed;
+      p.angle = dir + (this.rand() < 0.5 ? 0 : Math.PI);
+      p.av = (this.rand() - 0.5) * 10;
+      p.wobble = 0;
+    } else {
+      p.wobble = Math.min(1, p.wobble + dv / TUNE.fallDv + 0.15);
+      // Standing pins only scoot a little.
+      p.vx = nx * Math.min(dv, 60) * 0.5;
+      p.vy = ny * Math.min(dv, 60) * 0.5;
+    }
+  }
+}
+
+const GUTTER_MID = 20;
+
+/**
+ * Impulse resolution between two rigid bodies at contact point (px, py) with
+ * normal n pointing from a to b. Returns the Δv applied to b.
+ */
+function resolve(
+  a: BodyRef,
+  b: BodyRef,
+  px: number,
+  py: number,
+  nx: number,
+  ny: number,
+  depth: number,
+  e: number,
+): number {
+  const total = a.invM + b.invM;
+  a.x -= nx * depth * (a.invM / total);
+  a.y -= ny * depth * (a.invM / total);
+  b.x += nx * depth * (b.invM / total);
+  b.y += ny * depth * (b.invM / total);
+
+  const rax = px - a.x;
+  const ray = py - a.y;
+  const rbx = px - b.x;
+  const rby = py - b.y;
+  const vax = a.vx - a.av * ray;
+  const vay = a.vy + a.av * rax;
+  const vbx = b.vx - b.av * rby;
+  const vby = b.vy + b.av * rbx;
+  const vn = (vbx - vax) * nx + (vby - vay) * ny;
+  if (vn >= 0) return 0;
+  const raxn = rax * ny - ray * nx;
+  const rbxn = rbx * ny - rby * nx;
+  const k = a.invM + b.invM + raxn * raxn * a.invI + rbxn * rbxn * b.invI;
+  const j = (-(1 + e) * vn) / k;
+  a.vx -= j * nx * a.invM;
+  a.vy -= j * ny * a.invM;
+  a.av -= raxn * j * a.invI;
+  b.vx += j * nx * b.invM;
+  b.vy += j * ny * b.invM;
+  b.av += rbxn * j * b.invI;
+  return j * b.invM;
+}
