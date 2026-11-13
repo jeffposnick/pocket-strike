@@ -3,6 +3,7 @@ import {
   makeBall,
   makeBallGloss,
   makeBallShadow,
+  makeDeckSpots,
   makeFallenPin,
   makeLaneTiles,
   makeStandingPin,
@@ -13,7 +14,9 @@ import { buzz, Sfx } from './audio.ts';
 import {
   BALL_R,
   BALL_START_Y,
+  CLASSIC_RACK,
   HEAD_Y as PIN_HEAD_Y,
+  MEGA_RACK,
   boardAt,
   DECK_Y,
   LANE_HALF,
@@ -25,9 +28,9 @@ import {
   WALL_X,
 } from './constants.ts';
 import type { Hud } from './hud.ts';
-import { Run, pinInfo, POWERS } from './run.ts';
+import { hitTier, Run, pinInfo, POWERS } from './run.ts';
 import { isSplit, provisionalTotal, scoreFrames } from './scoring.ts';
-import { BOMB_RADIUS, DEFAULT_MODS, NO_POWERS, Sim } from './sim.ts';
+import { DEFAULT_MODS, NO_POWERS, Sim } from './sim.ts';
 import type { PinKind, PowerId } from './sim.ts';
 
 export type Mode = 'classic' | 'run';
@@ -92,6 +95,8 @@ export class Lanes extends ex.Scene {
   private readonly ball = new ex.Actor({ z: 5 });
   private readonly ballGloss = new ex.Actor({ z: 5.1 });
   private readonly ballShadow = new ex.Actor({ z: 3 });
+  private readonly spotsClassic = makeDeckSpots(CLASSIC_RACK);
+  private readonly spotsMega = makeDeckSpots(MEGA_RACK);
 
   // Game state
   private frame = 0;
@@ -147,12 +152,10 @@ export class Lanes extends ex.Scene {
 
   override onInitialize(engine: ex.Engine): void {
     for (const t of makeLaneTiles()) this.add(t);
-    for (let i = 0; i < 10; i++) {
-      const a = new ex.Actor({ z: 6 });
-      a.graphics.use(this.standingGfx);
-      this.pinActors.push(a);
-      this.add(a);
-    }
+    this.add(this.spotsClassic);
+    this.add(this.spotsMega);
+    this.spotsMega.graphics.isVisible = false;
+    this.ensurePinActors();
     for (const kind of ['gold', 'fire', 'bomb', 'chain', 'mega', 'homing', 'rails'] as PinKind[]) {
       const info = pinInfo(kind)!;
       this.specialGfx.set(kind, { standing: makeStandingPin(info.color), fallen: makeFallenPin(info.color) });
@@ -207,13 +210,21 @@ export class Lanes extends ex.Scene {
     this.sim.powers = { ...NO_POWERS };
     this.sim.mods = { ...DEFAULT_MODS };
     this.run = mode === 'run' ? new Run() : null;
+    const layout = mode === 'run' ? MEGA_RACK : CLASSIC_RACK;
+    if (this.sim.layout !== layout) {
+      this.sim.setLayout(layout);
+      this.ensurePinActors();
+    }
+    this.hud.setRackLayout(layout.rows);
+    this.spotsClassic.graphics.isVisible = layout === CLASSIC_RACK;
+    this.spotsMega.graphics.isVisible = layout === MEGA_RACK;
     this.stageOver = false;
     this.hud.setMode(mode);
     this.frame = 0;
     this.ballInFrame = 0;
     this.rolls = [];
     this.tenth = [];
-    this.standingBefore = 10;
+    this.standingBefore = this.sim.rackSize;
     this.streak = 0;
     this.strikes = 0;
     this.spares = 0;
@@ -230,6 +241,15 @@ export class Lanes extends ex.Scene {
     this.hud.hideThrow();
     if (this.run) this.startStage();
     this.beginAim();
+  }
+
+  private ensurePinActors(): void {
+    while (this.pinActors.length < this.sim.pins.length) {
+      const a = new ex.Actor({ z: 6 });
+      a.graphics.use(this.standingGfx);
+      this.pinActors.push(a);
+      this.add(a);
+    }
   }
 
   // ---- Roguelike run --------------------------------------------------------
@@ -253,7 +273,7 @@ export class Lanes extends ex.Scene {
   private applySpecials(): void {
     for (const p of this.sim.pins) p.kind = 'normal';
     if (!this.run) return;
-    for (const [id, kind] of this.run.rollSpecials()) this.sim.pins[id - 1].kind = kind;
+    for (const [id, kind] of this.run.rollSpecials(this.sim.rackSize)) this.sim.pins[id - 1].kind = kind;
     this.hud.setRack(this.sim.standing().map((p) => p.id), this.rackColors());
   }
 
@@ -302,7 +322,7 @@ export class Lanes extends ex.Scene {
       run.nextStage();
       this.frame = 0;
       this.ballInFrame = 0;
-      this.standingBefore = 10;
+      this.standingBefore = this.sim.rackSize;
       this.sim.clearDeadwood();
       this.sim.resetRack();
       this.applySpecials();
@@ -342,7 +362,7 @@ export class Lanes extends ex.Scene {
     const frames = this.run ? `/${this.run.framesPerStage}` : '';
     this.hud.setStatus(`Frame ${this.frame + 1}${frames} · Ball ${this.ballInFrame + 1}`);
     // Safety Net perk: bumpers for every spare attempt.
-    if (this.run) this.sim.bumpers = this.run.has('safety') > 0 && this.standingBefore < 10;
+    if (this.run) this.sim.bumpers = this.run.has('safety') > 0 && this.standingBefore < this.sim.rackSize;
     this.syncBallSize();
     if (this.throws < 2) this.hud.hint(true, 300);
   }
@@ -450,8 +470,9 @@ export class Lanes extends ex.Scene {
     this.sim.powers = { fire: has('fire'), bomb: has('bomb'), chain: has('chain'), mega: has('mega'), homing: has('homing') };
     if (has('rails')) this.sim.bumpers = true;
     const standing = this.sim.standing();
-    if (standing.length >= 9 || standing.length === 0) {
-      this.sim.homingX = spin > 0.05 ? -24 : 24;
+    if (standing.length >= this.sim.rackSize - 1 || standing.length === 0) {
+      const line = this.sim.layout.homingLine ?? 24;
+      this.sim.homingX = spin > 0.05 ? -line : line;
     } else {
       this.sim.homingX = standing.reduce((a, p) => a + p.x, 0) / standing.length;
     }
@@ -482,12 +503,15 @@ export class Lanes extends ex.Scene {
     }
     const standing = this.sim.standing().map((p) => p.id);
     const knocked = this.standingBefore - standing.length;
-    const fullRack = this.standingBefore === 10;
+    const rack = this.sim.rackSize;
+    const fullRack = this.standingBefore === rack;
     this.rolls.push(knocked);
 
     // Message.
     let ms = 1300;
-    if (fullRack && knocked === 10) {
+    if (this.run) {
+      ms = this.runBallResult(knocked, rack, fullRack, standing.length);
+    } else if (fullRack && knocked === 10) {
       this.streak++;
       this.strikes++;
       const names = ['STRIKE!', 'DOUBLE!', 'TURKEY!'];
@@ -525,20 +549,10 @@ export class Lanes extends ex.Scene {
       }
     }
 
-    if (this.run) {
-      const strike = fullRack && knocked === 10;
-      const spare = !fullRack && standing.length === 0;
-      const pts = this.run.points(knocked, strike, spare, this.streak, this.ballSpecials);
-      this.run.addPoints(pts.total);
-      if (strike) this.run.strikes++;
-      if (spare) this.run.spares++;
-      this.hud.points(pts);
-    }
-
     // Advance the frame.
     this.resetAfter = false;
     if (this.run) {
-      if ((this.ballInFrame === 0 && knocked === 10) || this.ballInFrame === 1) {
+      if ((this.ballInFrame === 0 && knocked === rack) || this.ballInFrame === 1) {
         this.nextFrame();
         this.run.frameInStage = this.frame;
         if (this.frame >= this.run.framesPerStage) this.stageOver = true;
@@ -566,10 +580,59 @@ export class Lanes extends ex.Scene {
         this.gameOver = true;
       }
     }
-    this.standingBefore = this.resetAfter ? 10 : standing.length;
+    this.standingBefore = this.resetAfter ? rack : standing.length;
 
     this.refreshHud();
     this.setPhase('result', ms);
+  }
+
+  /** Neon Run's per-ball banner and points. Returns how long to show the result. */
+  private runBallResult(knocked: number, rack: number, fullRack: boolean, left: number): number {
+    const run = this.run!;
+    const tier = hitTier(knocked, rack, fullRack);
+    const spare = !fullRack && left === 0;
+    if (tier === 'clear' || tier === 'big') this.streak++;
+    else if (fullRack) this.streak = 0;
+    const pts = run.points(knocked, tier, spare, this.streak, this.ballSpecials);
+    run.addPoints(pts.total);
+    if (tier === 'clear') run.strikes++;
+    if (tier === 'clear' || tier === 'big') run.bigHits++;
+    if (spare) run.spares++;
+    this.hud.points(pts);
+
+    const streakText = this.streak >= 2 ? ` · ${this.streak} in a row!` : '';
+    let ms = 1500;
+    if (tier === 'clear') {
+      this.hud.banner('MEGA STRIKE!', `All ${rack} pins down${streakText}`, 'strike', 2200);
+      this.hud.flash('rgba(255,255,255,0.9)');
+      this.sfx.fanfare(2);
+      this.burstConfetti(320);
+      this.shake = Math.max(this.shake, 20);
+      buzz([40, 40, 80, 40, 120]);
+      ms = 2300;
+    } else if (tier === 'big') {
+      this.hud.banner('BIG HIT!', `${knocked} of ${rack}${streakText}`, 'strike', 1700);
+      this.hud.flash('rgba(255,255,255,0.6)');
+      this.sfx.fanfare(Math.min(2, this.streak - 1));
+      this.burstConfetti(110 + this.streak * 30);
+      this.shake = Math.max(this.shake, 12);
+      buzz([30, 40, 60]);
+      ms = 1900;
+    } else if (spare) {
+      this.hud.banner('SPARE!', `Cleared the last ${knocked}`, 'spare', 1500);
+      this.hud.flash('rgba(56,243,255,0.4)');
+      this.sfx.chime();
+      this.burstConfetti(80);
+      buzz([20, 30, 20]);
+    } else if (knocked === 0) {
+      this.hud.banner(this.sim.ball.gutter ? 'GUTTER' : 'MISS', 'Not a pin', 'gutter', 1400);
+      this.sfx.womp();
+    } else if (tier === 'nice') {
+      this.hud.banner('NICE HIT', `${knocked} of ${rack} · ${left} left`, 'spare', 1500);
+    } else {
+      this.hud.banner(`${knocked} PINS`, fullRack ? `${left} left standing` : `${left} still up`, 'plain', 1400);
+    }
+    return ms;
   }
 
   private nextFrame(): void {
@@ -940,6 +1003,8 @@ export class Lanes extends ex.Scene {
   private syncActors(): void {
     const time = performance.now() / 1000;
     const lift = this.liftAmount();
+    const ps = this.sim.layout.pinScale;
+    for (let i = this.sim.pins.length; i < this.pinActors.length; i++) this.pinActors[i].graphics.isVisible = false;
     this.sim.pins.forEach((p, i) => {
       const a = this.pinActors[i];
       if (p.state === 'cleared') {
@@ -955,7 +1020,7 @@ export class Lanes extends ex.Scene {
         const drop = 1 - this.rackDrop;
         a.pos = ex.vec(p.x + Math.sin(time * 34 + p.id) * wob * 3.2, p.y + Math.cos(time * 29 + p.id) * wob * 2.4);
         const pulse = special ? Math.sin(time * 5 + p.id) * 0.06 : 0;
-        const sc = 1 + pulse + wob * 0.05 + lift * 0.16 + drop * 0.45;
+        const sc = (1 + pulse + wob * 0.05 + lift * 0.16 + drop * 0.45) * ps;
         a.scale = ex.vec(sc, sc);
         a.rotation = 0;
         a.graphics.opacity = 1 - drop * 0.9 - lift * 0.15;
@@ -966,11 +1031,11 @@ export class Lanes extends ex.Scene {
         a.rotation = p.angle;
         if (p.state === 'down') {
           const k = Math.min(1, p.downT / 0.14);
-          a.scale = ex.vec(0.3 + 0.7 * k, 1);
+          a.scale = ex.vec((0.3 + 0.7 * k) * ps, ps);
           a.graphics.opacity = 1;
         } else {
           const k = Math.min(1, p.pitT / 0.25);
-          a.scale = ex.vec(1 - k * 0.3, 1 - k * 0.3);
+          a.scale = ex.vec((1 - k * 0.3) * ps, (1 - k * 0.3) * ps);
           a.graphics.opacity = 1 - k;
         }
       }
@@ -1064,7 +1129,7 @@ export class Lanes extends ex.Scene {
 
     for (const r of this.rings) {
       const k = r.t / 0.5;
-      ctx.drawCircle(ex.vec(r.x, r.y), BOMB_RADIUS * (0.3 + 0.9 * k), ex.Color.fromRGB(255, 160, 60, 0.45 * (1 - k)), ex.Color.fromRGB(255, 240, 200, 1 - k), 6);
+      ctx.drawCircle(ex.vec(r.x, r.y), this.sim.bombRadius * (0.3 + 0.9 * k), ex.Color.fromRGB(255, 160, 60, 0.45 * (1 - k)), ex.Color.fromRGB(255, 240, 200, 1 - k), 6);
     }
 
     for (const f of this.flames) {

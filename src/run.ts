@@ -57,13 +57,13 @@ export const PERKS: Perk[] = [
   { id: 'wide', name: 'Wide Body', icon: '⭕', desc: 'Ball is 15% bigger.', max: 2 },
   { id: 'spin', name: 'Spin Doctor', icon: '🌀', desc: 'Your hook is 40% stronger.', max: 2 },
   { id: 'domino', name: 'Domino Effect', icon: '🀱', desc: 'Pins topple 15% more easily.', max: 3 },
-  { id: 'collector', name: 'Pin Collector', icon: '📌', desc: '+4 points for every pin.', max: 5 },
-  { id: 'striker', name: 'Strike Bonus', icon: '✖️', desc: 'Strikes give +1 extra mult.', max: 3 },
+  { id: 'collector', name: 'Pin Collector', icon: '📌', desc: '+1 point for every pin.', max: 5 },
+  { id: 'striker', name: 'Heavy Hitter', icon: '✖️', desc: 'Big Hits and Mega Strikes give +1 extra mult.', max: 3 },
   { id: 'spares', name: 'Spare Parts', icon: '➗', desc: 'Spares give +1 extra mult.', max: 3 },
-  { id: 'hothand', name: 'Hot Hand', icon: '♨️', desc: '+0.5 mult for each strike in a row.', rare: true, max: 3 },
+  { id: 'hothand', name: 'Hot Hand', icon: '♨️', desc: '+0.5 mult for each Big Hit in a row.', rare: true, max: 3 },
   { id: 'extra', name: 'Extra Frame', icon: '➕', desc: 'One more frame in every stage.', rare: true, max: 2 },
   { id: 'magpie', name: 'Magpie', icon: '🐦', desc: 'Gold pins show up more and pay double.', max: 1 },
-  { id: 'lucky', name: 'Lucky Rack', icon: '🍀', desc: 'One more special pin in every rack.', max: 3 },
+  { id: 'lucky', name: 'Lucky Rack', icon: '🍀', desc: 'Two more special pins in every rack.', max: 3 },
   { id: 'safety', name: 'Safety Net', icon: '🥅', desc: 'Bumpers go up whenever you shoot a spare.', max: 1 },
   { id: 'surge', name: 'Power Surge', icon: '🔋', desc: 'Start every stage with a random power-up.', rare: true, max: 2 },
   { id: 'pockets', name: 'Deep Pockets', icon: '🎒', desc: 'One more power-up slot.', max: 2 },
@@ -79,12 +79,12 @@ export interface Stage {
 }
 
 export const STAGES: Stage[] = [
-  { name: 'Warm-up Lane', target: 200 },
-  { name: 'League Night', target: 320 },
-  { name: 'Slick Lane', target: 440, boss: 'Oil spill: your hook is cut in half', mods: { hookMult: 0.5 } },
-  { name: 'Cosmic Hour', target: 600 },
-  { name: 'Pro-Am', target: 800 },
-  { name: 'Iron Pins', target: 1080, boss: 'Iron pins: 35% harder to topple', mods: { fallMult: 1.35 } },
+  { name: 'Warm-up Lane', target: 420 },
+  { name: 'League Night', target: 620 },
+  { name: 'Slick Lane', target: 820, boss: 'Oil spill: your hook is cut in half', mods: { hookMult: 0.5 } },
+  { name: 'Cosmic Hour', target: 1050 },
+  { name: 'Pro-Am', target: 1300 },
+  { name: 'Iron Pins', target: 1400, boss: 'Iron pins: 35% harder to topple', mods: { fallMult: 1.35 } },
 ];
 
 export const POWER_PRICE = 3;
@@ -94,6 +94,17 @@ export interface BallPoints {
   chips: number;
   mult: number;
   total: number;
+}
+
+/** How good a first ball at a full Mega Rack was. */
+export type HitTier = 'clear' | 'big' | 'nice' | null;
+
+export function hitTier(knocked: number, rack: number, fullRack: boolean): HitTier {
+  if (!fullRack) return null;
+  if (knocked === rack) return 'clear';
+  if (knocked >= rack * 0.9) return 'big';
+  if (knocked >= rack * 0.8) return 'nice';
+  return null;
 }
 
 type Rand = () => number;
@@ -108,6 +119,7 @@ export class Run {
   inventory: PowerId[] = [];
   armed = new Set<number>();
   strikes = 0;
+  bigHits = 0;
   spares = 0;
   specialsHit = 0;
   private readonly rand: Rand;
@@ -142,10 +154,12 @@ export class Run {
     };
   }
 
-  /** Picks which pins (1–10) are special in a fresh rack. */
-  rollSpecials(): Map<number, PinKind> {
-    const count = Math.min(5, 1 + Math.floor(this.stage / 2) + this.has('lucky'));
-    const ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].sort(() => this.rand() - 0.5).slice(0, count);
+  /** Picks which pins (by id, 1-based) are special in a fresh rack. */
+  rollSpecials(rackSize: number): Map<number, PinKind> {
+    const count = Math.min(12, 3 + this.stage + 2 * this.has('lucky'));
+    const ids = Array.from({ length: rackSize }, (_, i) => i + 1)
+      .sort(() => this.rand() - 0.5)
+      .slice(0, count);
     const weights: [PinKind, number][] = [
       ['gold', this.has('magpie') ? 6 : 3],
       ['fire', 1],
@@ -195,11 +209,15 @@ export class Run {
     return used;
   }
 
-  points(knocked: number, strike: boolean, spare: boolean, streak: number, specials: number): BallPoints {
-    const chips = knocked * (10 + 4 * this.has('collector')) + specials * 15;
+  /** `streak` counts consecutive Big Hits / Mega Strikes, including this ball. */
+  points(knocked: number, tier: HitTier, spare: boolean, streak: number, specials: number): BallPoints {
+    const chips = knocked * (2 + this.has('collector')) + specials * 10;
     let mult = 1;
-    if (strike) mult += 1 + this.has('striker') + 0.5 * this.has('hothand') * Math.max(0, streak - 1);
-    if (spare) mult += 0.5 + this.has('spares');
+    if (tier === 'clear') mult += 3 + this.has('striker');
+    if (tier === 'big') mult += 1 + this.has('striker');
+    if (tier === 'nice') mult += 0.5;
+    if (tier === 'clear' || tier === 'big') mult += 0.5 * this.has('hothand') * Math.max(0, streak - 1);
+    if (spare) mult += 1 + this.has('spares');
     const total = Math.round(chips * mult);
     return { chips, mult, total };
   }
@@ -220,7 +238,7 @@ export class Run {
   /** Coins awarded for clearing the stage, itemized. */
   stageReward(): { label: string; coins: number }[] {
     const out = [{ label: 'Stage clear', coins: 3 }];
-    const surplus = Math.floor((this.stageScore - this.stageInfo.target) / 60);
+    const surplus = Math.floor((this.stageScore - this.stageInfo.target) / 150);
     if (surplus > 0) out.push({ label: 'Overkill', coins: Math.min(4, surplus) });
     if (this.has('interest')) {
       const i = Math.min(5, Math.floor(this.coins / 3));

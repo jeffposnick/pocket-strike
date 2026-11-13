@@ -1,4 +1,5 @@
 import * as ex from 'excalibur';
+import type { RackLayout } from './constants.ts';
 import {
   ARROWS_Y,
   BALL_R,
@@ -10,9 +11,9 @@ import {
   LANE_HALF,
   PIN_LEN,
   PIN_R,
-  PIN_SPOTS,
   PIT_DEPTH,
   PIT_Y,
+  rackSpots,
   WALL_X,
 } from './constants.ts';
 
@@ -225,13 +226,6 @@ function paintLane(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: num
       }
     }
 
-    // Pin spots on the deck.
-    ctx.fillStyle = 'rgba(70,35,10,0.35)';
-    for (const p of PIN_SPOTS) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
-      ctx.fill();
-    }
     // Deck edge line.
     if (DECK_Y > laneTop && DECK_Y < laneBot) {
       ctx.fillStyle = 'rgba(80,40,10,0.35)';
@@ -319,6 +313,32 @@ function paintLane(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: num
 }
 
 const GUTTER_PX = WALL_X - LANE_HALF;
+
+/** Painted pin spots for one rack layout, as an actor laid over the deck. */
+export function makeDeckSpots(layout: RackLayout): ex.Actor {
+  const spots = rackSpots(layout);
+  const w = LANE_HALF * 2;
+  const top = PIT_Y;
+  const h = HEAD_Y + 20 - top;
+  const r = 7 * layout.pinScale;
+  const canvas = new ex.Canvas({
+    width: w,
+    height: h,
+    cache: true,
+    draw: (ctx) => {
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(70,35,10,0.35)';
+      for (const p of spots) {
+        ctx.beginPath();
+        ctx.arc(p.x + LANE_HALF, p.y - top, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+  });
+  const a = new ex.Actor({ pos: ex.vec(-LANE_HALF, top), anchor: ex.vec(0, 0), z: 1 });
+  a.graphics.use(canvas);
+  return a;
+}
 
 /**
  * Side-on outline of a bowling pin lying along +x from (x, y), length `len`.

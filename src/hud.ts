@@ -17,19 +17,6 @@ export interface GameOverStats {
   spares: number;
 }
 
-/** Rack diagram positions (pins 7-10 across the top, head pin at the bottom). */
-const RACK_LAYOUT: [number, number, number][] = [
-  [1, 1.5, 3],
-  [2, 1, 2],
-  [3, 2, 2],
-  [4, 0.5, 1],
-  [5, 1.5, 1],
-  [6, 2.5, 1],
-  [7, 0, 0],
-  [8, 1, 0],
-  [9, 2, 0],
-  [10, 3, 0],
-];
 
 export class Hud {
   private bannerTimer = 0;
@@ -46,20 +33,36 @@ export class Hud {
       el.innerHTML = `<div class="fno">${f + 1}</div><div class="marks">${'<span></span>'.repeat(f === 9 ? 3 : 2)}</div><div class="ftot"></div>`;
       board.appendChild(el);
     }
-    const rack = $('rack');
-    for (const [id, x, y] of RACK_LAYOUT) {
-      const d = document.createElement('i');
-      d.style.left = `${x * 14 + 2}px`;
-      d.style.top = `${y * 12 + 2}px`;
-      d.title = `Pin ${id}`;
-      rack.appendChild(d);
-      this.rackDots.set(id, d);
-    }
+    this.setRackLayout(4);
     try {
       this.styleIndex = Number(localStorage.getItem('ps-style') ?? 0) % BALL_STYLES.length;
       this.bumpers = localStorage.getItem('ps-bumpers') === '1';
     } catch {
       /* storage unavailable */
+    }
+  }
+
+  /** Builds the rack diagram: back row across the top, head pin at the bottom. */
+  setRackLayout(rows: number): void {
+    const rack = $('rack');
+    rack.innerHTML = '';
+    this.rackDots.clear();
+    const dot = rows > 4 ? 4 : 8;
+    const stepX = rows > 4 ? 5.2 : 14;
+    const stepY = rows > 4 ? 4.6 : 12;
+    rack.classList.toggle('mega', rows > 4);
+    let id = 1;
+    for (let row = 0; row < rows; row++) {
+      for (let k = 0; k <= row; k++) {
+        const d = document.createElement('i');
+        d.style.width = d.style.height = `${dot}px`;
+        d.style.left = `${(k + (rows - 1 - row) / 2) * stepX + 2}px`;
+        d.style.top = `${(rows - 1 - row) * stepY + 2}px`;
+        d.title = `Pin ${id}`;
+        rack.appendChild(d);
+        this.rackDots.set(id, d);
+        id++;
+      }
     }
   }
 
@@ -422,7 +425,7 @@ Hud.prototype.showRunOver = function (
   $('roStats').innerHTML = [
     ['Stage reached', `${Math.min(run.stage + 1, STAGES.length)} / ${STAGES.length}`],
     ['Total points', String(run.totalScore)],
-    ['Strikes · spares', `${run.strikes} · ${run.spares}`],
+    ['Big hits · spares', `${run.bigHits} · ${run.spares}`],
     ['Special pins', String(run.specialsHit)],
   ]
     .map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`)

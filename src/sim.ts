@@ -1,7 +1,9 @@
+import type { RackLayout } from './constants.ts';
 import {
   BALL_MASS,
   BALL_R,
   BALL_START_Y,
+  CLASSIC_RACK,
   DECK_Y,
   HEAD_Y,
   HOOK,
@@ -9,8 +11,8 @@ import {
   PIN_LEN,
   PIN_MASS,
   PIN_R,
-  PIN_SPOTS,
   PIT_Y,
+  rackSpots,
   WALL_X,
 } from './constants.ts';
 
@@ -59,6 +61,8 @@ export interface Pin {
   pitT: number;
   /** Set by the Fireball: a burning pin topples whatever it touches. */
   burning: boolean;
+  /** Seconds left before a burning pin goes out. */
+  burnT: number;
 }
 
 export interface Ball {
@@ -86,16 +90,12 @@ export type SimEvent =
   | { type: 'bomb'; x: number; y: number }
   | { type: 'zap'; x1: number; y1: number; x2: number; y2: number };
 
-export const BOMB_RADIUS = 165;
+const BOMB_RADIUS = 165;
 const MEGA_SCALE = 1.8;
 
 /** Δv a standing pin must take to go down; softer knocks just make it wobble. */
 export const TUNE = { fallDv: 220, downFriction: 2.2, pinE: 0.6, ballE: 0.55 };
-const PIN_I = (PIN_MASS * PIN_LEN * PIN_LEN) / 12;
 const STEP = 1 / 300;
-/** A fallen pin collides as three circles along its length. */
-const SEG_OFFSETS = [-PIN_LEN * 0.34, 0, PIN_LEN * 0.34];
-const SEG_R = 15;
 
 type Rand = () => number;
 
@@ -110,7 +110,15 @@ interface BodyRef {
 }
 
 export class Sim {
-  readonly pins: Pin[] = [];
+  pins: Pin[] = [];
+  layout: RackLayout = CLASSIC_RACK;
+  private spots = rackSpots(CLASSIC_RACK);
+  private pinR = PIN_R;
+  private pinMass = PIN_MASS;
+  private pinI = (PIN_MASS * PIN_LEN * PIN_LEN) / 12;
+  /** A fallen pin collides as three circles along its length. */
+  private segOffsets = [-PIN_LEN * 0.34, 0, PIN_LEN * 0.34];
+  private segR = 15;
   readonly ball: Ball = {
     x: 0,
     y: BALL_START_Y,
@@ -137,13 +145,29 @@ export class Sim {
   private zapsLeft = 0;
   private readonly rand: Rand;
 
-  constructor(rand: Rand = Math.random) {
+  constructor(rand: Rand = Math.random, layout: RackLayout = CLASSIC_RACK) {
     this.rand = rand;
-    for (let i = 0; i < 10; i++) {
+    this.setLayout(layout);
+  }
+
+  /** Switches between the regulation rack and Neon Run's mega rack. */
+  setLayout(layout: RackLayout): void {
+    this.layout = layout;
+    this.spots = rackSpots(layout);
+    const s = layout.pinScale;
+    this.pinR = PIN_R * s;
+    this.pinMass = PIN_MASS * layout.pinMass;
+    const len = PIN_LEN * s;
+    this.pinI = (this.pinMass * len * len) / 12;
+    this.segOffsets = [-len * 0.34, 0, len * 0.34];
+    this.segR = 15 * s;
+    this.pins = [];
+    for (let i = 0; i < this.spots.length; i++) {
       this.pins.push({
         id: i + 1,
         kind: 'normal',
         burning: false,
+        burnT: 0,
         x: 0,
         y: 0,
         vx: 0,
@@ -159,17 +183,26 @@ export class Sim {
     this.resetRack();
   }
 
+  get bombRadius(): number {
+    return this.layout.bombRadius ?? BOMB_RADIUS;
+  }
+
+  get rackSize(): number {
+    return this.pins.length;
+  }
+
   resetRack(): void {
     this.pins.forEach((p, i) => {
       Object.assign(p, {
-        x: PIN_SPOTS[i].x,
-        y: PIN_SPOTS[i].y,
+        x: this.spots[i].x,
+        y: this.spots[i].y,
         vx: 0,
         vy: 0,
         angle: 0,
         av: 0,
         state: 'standing' as PinState,
         burning: false,
+        burnT: 0,
         wobble: 0,
         downT: 0,
         pitT: 0,
@@ -206,7 +239,7 @@ export class Sim {
 
   /** Current ball radius, after perks and Mega Ball. */
   get ballR(): number {
-    return BALL_R * this.mods.ballR * (this.powers.mega ? MEGA_SCALE : 1);
+    return BALL_R * this.mods.ballR * (this.powers.mega ? (this.layout.megaScale ?? MEGA_SCALE) : 1);
   }
 
   private get ballMass(): number {
@@ -304,6 +337,10 @@ export class Sim {
 
     // ---- Pins
     for (const p of this.pins) {
+      if (p.burning) {
+        p.burnT -= h;
+        if (p.burnT <= 0) p.burning = false;
+      }
       if (p.state === 'standing') {
         const k = Math.exp(-14 * h);
         p.vx *= k;
@@ -321,11 +358,11 @@ export class Sim {
         p.y += p.vy * h;
         p.angle += p.av * h;
         // Kickbacks and the lane edge.
-        for (const off of SEG_OFFSETS) {
+        for (const off of this.segOffsets) {
           const ex = p.x + Math.cos(p.angle) * off;
-          if (Math.abs(ex) > WALL_X - SEG_R) {
+          if (Math.abs(ex) > WALL_X - this.segR) {
             const s = Math.sign(ex);
-            const push = Math.abs(ex) - (WALL_X - SEG_R);
+            const push = Math.abs(ex) - (WALL_X - this.segR);
             p.x -= s * push;
             if (Math.sign(p.vx) === s) {
               this.events.push({ type: 'wall', x: ex, y: p.y, power: Math.abs(p.vx) });
@@ -371,8 +408,14 @@ export class Sim {
 
     // ---- Collisions
     if (b.rolling && !b.gutter && !b.inPit) {
+      const br = this.ballR;
       for (const p of this.pins) {
-        if (p.state === 'standing' || p.state === 'down') this.collideBallPin(p);
+        if (p.state !== 'standing' && p.state !== 'down') continue;
+        const reach = br + this.reach(p);
+        const dx = p.x - b.x;
+        const dy = p.y - b.y;
+        if (dx * dx + dy * dy > reach * reach) continue;
+        this.collideBallPin(p);
       }
     }
     for (let i = 0; i < this.pins.length; i++) {
@@ -383,18 +426,27 @@ export class Sim {
         if (c.state !== 'standing' && c.state !== 'down') continue;
         if (a.state === 'standing' && c.state === 'standing') {
           // Two standing pins only interact if one has been shoved into the other.
-          if (Math.hypot(a.vx, a.vy) + Math.hypot(c.vx, c.vy) < 5) continue;
+          if (Math.abs(a.vx) + Math.abs(a.vy) + Math.abs(c.vx) + Math.abs(c.vy) < 5) continue;
         }
+        const reach = this.reach(a) + this.reach(c);
+        const dx = a.x - c.x;
+        const dy = a.y - c.y;
+        if (dx * dx + dy * dy > reach * reach) continue;
         this.collidePins(a, c);
       }
     }
   }
 
+  /** Bounding radius around a pin's centre. */
+  private reach(p: Pin): number {
+    return p.state === 'standing' ? this.pinR : this.segOffsets[2] + this.segR;
+  }
+
   private circles(p: Pin): { x: number; y: number; r: number }[] {
-    if (p.state === 'standing') return [{ x: p.x, y: p.y, r: PIN_R }];
+    if (p.state === 'standing') return [{ x: p.x, y: p.y, r: this.pinR }];
     const cx = Math.cos(p.angle);
     const sy = Math.sin(p.angle);
-    return SEG_OFFSETS.map((o) => ({ x: p.x + cx * o, y: p.y + sy * o, r: SEG_R }));
+    return this.segOffsets.map((o) => ({ x: p.x + cx * o, y: p.y + sy * o, r: this.segR }));
   }
 
   private collideBallPin(p: Pin): void {
@@ -417,7 +469,7 @@ export class Sim {
         this.events.push({ type: 'ballPin', x: c.x, y: c.y, power: dv });
         this.contact = true;
       }
-      if (this.powers.fire && dv > 20) p.burning = true;
+      if (this.powers.fire && dv > 20) this.ignite(p);
       this.afterHit(p, this.powers.fire ? dv * 3 : dv, dx / d, dy / d);
       if (this.powers.bomb && !this.bombUsed && dv > 20) this.explode(c.x, c.y);
       return;
@@ -443,8 +495,13 @@ export class Sim {
         this.applyRef(c, rc);
         if (dv > 25) this.events.push({ type: 'pinPin', x: ca.x + nx * ca.r, y: ca.y + ny * ca.r, power: dv });
         const fire = a.burning || c.burning;
-        if (fire && dv > 4) a.burning = c.burning = true;
-        const boost = fire ? 7 : 1;
+        if (fire && dv > 4) {
+          // Fire spreads, but each new flame burns a little shorter.
+          const t = Math.max(a.burning ? a.burnT : 0, c.burning ? c.burnT : 0) * 0.8;
+          if (!a.burning) this.ignite(a, t);
+          if (!c.burning) this.ignite(c, t);
+        }
+        const boost = fire ? (this.layout.fireBoost ?? 7) : 1;
         if (aWasStanding) this.afterHit(a, dv * boost * (c.state === 'standing' ? 0.6 : 1), -nx, -ny);
         if (cWasStanding) this.afterHit(c, dv * boost * (a.state === 'standing' ? 0.6 : 1), nx, ny);
         return;
@@ -460,8 +517,8 @@ export class Sim {
       vx: p.vx,
       vy: p.vy,
       av: p.av,
-      invM: 1 / PIN_MASS,
-      invI: standing ? 0 : 1 / PIN_I,
+      invM: 1 / this.pinMass,
+      invI: standing ? 0 : 1 / this.pinI,
     };
   }
 
@@ -473,6 +530,12 @@ export class Sim {
     if (p.state === 'down') p.av = r.av;
   }
 
+  private ignite(p: Pin, t = 0.7): void {
+    if (t < 0.15) return;
+    p.burning = true;
+    p.burnT = t;
+  }
+
   private explode(x: number, y: number): void {
     this.bombUsed = true;
     this.events.push({ type: 'bomb', x, y });
@@ -481,8 +544,8 @@ export class Sim {
       const dx = p.x - x;
       const dy = p.y - y;
       const d = Math.hypot(dx, dy) || 1;
-      if (d > BOMB_RADIUS) continue;
-      const dv = 140 + 760 * (1 - d / BOMB_RADIUS);
+      if (d > this.bombRadius) continue;
+      const dv = 140 + 760 * (1 - d / this.bombRadius);
       const nx = dx / d;
       const ny = dy / d;
       p.vx += nx * dv;
@@ -495,7 +558,7 @@ export class Sim {
   /** Decides whether a standing pin that just got hit topples or just rocks. */
   private afterHit(p: Pin, dv: number, nx: number, ny: number): void {
     if (p.state !== 'standing') return;
-    const need = TUNE.fallDv * this.mods.fallMult;
+    const need = TUNE.fallDv * this.mods.fallMult * (this.layout.fallScale ?? 1);
     if (dv > need * (0.85 + this.rand() * 0.3)) {
       p.state = 'down';
       p.downT = 0;
@@ -514,7 +577,8 @@ export class Sim {
       p.av = (this.rand() - 0.5) * 10;
       p.wobble = 0;
     } else {
-      p.wobble = Math.min(1, p.wobble + dv / need + 0.15);
+      // Resting contact (a pin lying against this one) shouldn't keep it rocking forever.
+      if (dv > 12) p.wobble = Math.min(1, p.wobble + dv / need + 0.15);
       // Standing pins only scoot a little.
       p.vx = nx * Math.min(dv, 60) * 0.5;
       p.vy = ny * Math.min(dv, 60) * 0.5;

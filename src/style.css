@@ -175,8 +175,6 @@ header {
 
 #rack i {
   position: absolute;
-  width: 8px;
-  height: 8px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
@@ -185,6 +183,14 @@ header {
 
 #rack i.special {
   transform: scale(1.25);
+}
+
+#rack.mega i {
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.7);
+}
+
+#rack.mega i.special {
+  transform: scale(1.5);
 }
 
 #rack i.down {

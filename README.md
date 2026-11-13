@@ -15,8 +15,16 @@ Top-down neon lanes, real pin action, ten-frame scoring.
 
 ## Neon Run (roguelike mode)
 
-Six lanes, three frames each. Score enough points on each lane to move on. Points are
-**pins × mult**: 10 per pin (+15 per special pin). Strikes add +1 mult and spares +0.5.
+Six lanes, three frames each, against a **Mega Rack of 55 pins**: a 10-row triangle of smaller pins
+that cascade into each other. Score enough points on each lane to move on. Points are **pins × mult**:
+2 per pin, +10 per special pin. First-ball tiers add mult:
+
+| Tier | Pins down | Mult |
+| --- | --- | --- |
+| Nice Hit | 80%+ (44+) | +0.5 |
+| Big Hit | 90%+ (50+) | +1 |
+| MEGA STRIKE | all 55 | +3 |
+| Spare | clear the rest on ball 2 | +1 |
 
 - **Special pins** glow in the rack (and on the rack diagram). Knock one down to bank it:
   - 🔥 **Fireball**: plows through; burning pins topple anything they touch
@@ -30,6 +38,7 @@ Six lanes, three frames each. Score enough points on each lane to move on. Point
 - **After each lane:** pick one of three perks (Heavy Ball, Domino Effect, Hot Hand, Laser Sight and more),
   buy power-ups with coins, or reroll the perk offers.
 - **Boss lanes:** Slick Lane (hook halved) and Iron Pins (pins 35% harder to topple).
+- Power-ups are re-balanced for the Mega Rack (smaller bomb blast, weaker fire spread, smaller Mega Ball).
 
 Stage targets were tuned by simulating hundreds of full runs with simulated players of different skill.
 
