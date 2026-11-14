@@ -130,8 +130,10 @@ so resting pins can't shuffle.
 
 - **Aim:** the ball sits low on screen (higher in Neon Run, so the power-up slots don't cover it).
 - **Roll:** follows the ball, then locks onto the pin deck at first contact.
-- **Return:** a 1.3 s sine-eased pan back to the bowler. The original 0.85 s cubic ease peaked at
-  ~200 px per frame and looked like a frame-rate problem; the sine ease peaks around 65 px.
+- **Return:** a 0.7 s fade to night (a screen-space `ScreenElement` curtain above every actor, below
+  the HTML HUD), a cut back to the bowler while it's fully dark, then a fade back in with the ball
+  ready. Earlier versions panned the whole lane (a 0.85 s cubic ease, then a 1.3 s sine ease), which
+  still looked janky at ~3,000 px of travel.
 - **Zoom:** Neon Run uses 0.88 to fit its wider lane.
 
 ## Look

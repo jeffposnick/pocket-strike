@@ -87,7 +87,8 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 /** Gentle ease for the long camera pan back to the bowler (peak speed ~1.6× average, not 3×). */
 const easeSine = (t: number) => (1 - Math.cos(Math.PI * t)) / 2;
-const RETURN_MS = 1300;
+/** Fade to night and back in with the ball ready, instead of panning the whole lane. */
+const RETURN_MS = 700;
 const CONFETTI_COLORS = [NEON.pink, NEON.cyan, NEON.amber, NEON.violet, '#ffffff', '#7dff9b'].map((c) =>
   ex.Color.fromHex(c),
 );
@@ -117,6 +118,9 @@ export class Lanes extends ex.Scene {
   private readonly ball = new ex.Actor({ z: 5 });
   private readonly ballGloss = new ex.Actor({ z: 5.1 });
   private readonly ballShadow = new ex.Actor({ z: 3 });
+  /** Screen-space curtain for the return fade; above every actor, below the HTML HUD. */
+  private readonly fadeRect = new ex.Rectangle({ width: 540, height: 960, color: ex.Color.fromHex(NEON.night) });
+  private readonly fadeCurtain = new ex.ScreenElement({ x: 0, y: 0, z: 100 });
   private readonly spotsClassic = makeDeckSpots(CLASSIC_RACK);
   private readonly spotsMega = makeDeckSpots(MEGA_RACK);
 
@@ -148,7 +152,6 @@ export class Lanes extends ex.Scene {
   private camY = 0;
   /** Neon Run zooms out a little to fit its wider lane. */
   private zoom = 1;
-  private returnFrom = 0;
   private phaseT = 0;
   private phaseDur = 0;
   private slowT = 0;
@@ -189,6 +192,9 @@ export class Lanes extends ex.Scene {
     this.add(this.ballShadow);
     this.add(this.ball);
     this.add(this.ballGloss);
+    this.fadeCurtain.graphics.use(this.fadeRect);
+    this.fadeCurtain.graphics.isVisible = false;
+    this.add(this.fadeCurtain);
 
     try {
       this.best = Number(localStorage.getItem('ps-best') ?? 0) || 0;
@@ -512,7 +518,6 @@ export class Lanes extends ex.Scene {
       this.applySpecials();
       this.rackDrop = 0;
       this.startStage();
-      this.returnFrom = this.camY;
       this.sim.placeBall(this.lastX);
       this.setPhase('return', RETURN_MS);
     }, () => this.sfx.chime());
@@ -564,6 +569,13 @@ export class Lanes extends ex.Scene {
   }
 
   // ---- Input ------------------------------------------------------------------
+
+  /** Opacity of the return fade: up to fully opaque at the halfway cut, then back down. */
+  private returnFade(): number {
+    if (this.phase !== 'return' || this.phaseDur <= 0) return 0;
+    const t = Math.min(1, this.phaseT / this.phaseDur);
+    return easeSine(1 - Math.abs(2 * t - 1));
+  }
 
   /** A tap (or the confirm button) hurries the between-ball sequence along. */
   private hurry(): void {
@@ -1094,15 +1106,14 @@ export class Lanes extends ex.Scene {
       case 'sweep':
         this.updateSweep();
         if (this.phaseT >= this.phaseDur) {
-          this.returnFrom = this.camY;
-          this.sim.placeBall(this.lastX);
+              this.sim.placeBall(this.lastX);
           this.setPhase('return', RETURN_MS);
           this.hud.hideThrow();
         }
         break;
       case 'return': {
-        const k = easeSine(Math.min(1, this.phaseT / this.phaseDur));
-        this.camY = this.returnFrom + (this.aimCamY(engine) - this.returnFrom) * k;
+        // Cut the camera back to the bowler while the screen is fully faded out.
+        if (this.phaseT >= this.phaseDur / 2) this.camY = this.aimCamY(engine);
         if (this.phaseT >= this.phaseDur) this.beginAim();
         break;
       }
@@ -1182,6 +1193,16 @@ export class Lanes extends ex.Scene {
     const sx = this.shake > 0.3 ? rand(-this.shake, this.shake) : 0;
     const sy = this.shake > 0.3 ? rand(-this.shake, this.shake) : 0;
     this.camera.pos = ex.vec(sx, this.camY + sy);
+
+    // Return: fade out, cut to the bowler, fade back in.
+    const fade = this.returnFade();
+    this.fadeCurtain.graphics.isVisible = fade > 0;
+    if (fade > 0) {
+      const res = engine.screen.resolution;
+      this.fadeRect.width = res.width;
+      this.fadeRect.height = res.height;
+      this.fadeCurtain.graphics.opacity = fade;
+    }
 
     this.syncActors();
   }
