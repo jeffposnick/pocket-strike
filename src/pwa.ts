@@ -1,5 +1,3 @@
-import { registerSW } from 'virtual:pwa-register';
-
 /** The non-standard install prompt event (Chromium browsers). */
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -84,6 +82,41 @@ document.addEventListener(
   true,
 );
 
+interface SwHandlers {
+  /** A new version is installed and waiting; `update` tells it to take over (the page then reloads). */
+  onNeedRefresh(update: () => void): void;
+  /** The first install finished: everything is cached for offline play. */
+  onOfflineReady(): void;
+  onRegistered(registration: ServiceWorkerRegistration): void;
+}
+
+/**
+ * Registers `sw.js` with workbox-window, "prompt" style: a new version waits until `update` is called,
+ * then the page reloads once it takes control. workbox-window loads lazily, after the game.
+ */
+async function registerServiceWorker(on: SwHandlers): Promise<void> {
+  const { Workbox } = await import('@vite-pwa/workbox-window');
+  const wb = new Workbox('./sw.js', { scope: './', type: 'classic' });
+  let needRefresh = false;
+  const showUpdate = () => {
+    if (!needRefresh) {
+      needRefresh = true;
+      wb.addEventListener('controlling', (e) => {
+        if (e.isUpdate) window.location.reload();
+      });
+    }
+    on.onNeedRefresh(() => wb.messageSkipWaiting());
+  };
+  wb.addEventListener('waiting', showUpdate);
+  wb.addEventListener('installed', (e) => {
+    // A worker installed by another tab (isExternal) is an update this page didn't see coming.
+    if (e.isExternal) showUpdate();
+    else if (!e.isUpdate && !needRefresh) on.onOfflineReady();
+  });
+  const registration = await wb.register({ immediate: false });
+  if (registration) on.onRegistered(registration);
+}
+
 /**
  * Registers the service worker (offline support) and wires up install and
  * update prompts. Updates never apply on their own: the player taps "Update"
@@ -94,9 +127,15 @@ export function setupPwa(): void {
 
   $('pwaClose').onclick = hidePill;
 
-  const updateSW = registerSW({
-    onNeedRefresh() {
-      const update = () => void updateSW(true);
+  // The dev server builds no service worker (see vite.config.ts), so only production builds register one.
+  if (import.meta.env.PROD) registerOfflineSupport();
+
+  installPrompt();
+}
+
+function registerOfflineSupport(): void {
+  void registerServiceWorker({
+    onNeedRefresh(update) {
       // The toast is a shortcut; the menu always offers the update too.
       const updateBtn = $('updateBtn') as HTMLButtonElement;
       updateBtn.onclick = update;
@@ -106,8 +145,7 @@ export function setupPwa(): void {
     onOfflineReady() {
       pill('Ready to play offline.', undefined, 3500);
     },
-    onRegisteredSW(_url, registration) {
-      if (!registration) return;
+    onRegistered(registration) {
       // Browsers only look for a new service worker on navigation, and an
       // installed game can stay open for a long time. Check on startup, when
       // the game comes back to the foreground, and hourly while it's open.
@@ -123,8 +161,10 @@ export function setupPwa(): void {
       });
       window.setInterval(check, 60 * 60 * 1000);
     },
-  });
+  }).catch((err) => console.error('Service worker registration failed', err));
+}
 
+function installPrompt(): void {
   // Install button in the menu. The Web Install API (navigator.install) is preferred; Chromium's
   // beforeinstallprompt is the fallback. The button stays hidden unless one of them can install.
   const nav = navigator as Navigator & { install?: () => Promise<void> };

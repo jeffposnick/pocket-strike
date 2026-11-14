@@ -63,7 +63,9 @@ roguelike "Neon Run" mode with a 55-pin rack.
 - **Browser support:** Baseline Widely available. Newer features are fine as progressive enhancement
   with a small same-origin fallback; never load a polyfill from a CDN, and only bundle one if a guide
   requires it and the fallback can't be done in a few lines.
-- It's a PWA (`vite-plugin-pwa`, injectManifest; the service worker is `src/sw.ts` on
-  `@vite-pwa/workbox-swkit`, imported via subpath exports only). Keep every runtime asset same-origin and bundled so it stays
+- It's a PWA built from the `@vite-pwa/workbox-*` packages (no `vite-plugin-pwa`): the service worker is
+  `src/sw.ts` on `@vite-pwa/workbox-swkit` (subpath imports only), bundled by `@vite-pwa/workbox-build`'s
+  `ViteWorkboxPWAPlugin`; the manifest is `MANIFEST` in `vite.config.ts`; registration is in `src/pwa.ts`
+  (`@vite-pwa/workbox-window`). New runtime asset types must be added to `globPatterns` to be precached. Keep every runtime asset same-origin and bundled so it stays
   offline-capable; no CDN fonts or scripts. After changing PWA behaviour, run `tools/pwa-check.cjs`
   (see docs/DEVELOPMENT.md).

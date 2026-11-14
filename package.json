@@ -22,13 +22,13 @@
     "excalibur": "^1.0.1"
   },
   "devDependencies": {
-    "@vite-pwa/workbox-swkit": "^8.0.13",
+    "@vite-pwa/workbox-build": "^8.0.15",
+    "@vite-pwa/workbox-swkit": "^8.0.15",
+    "@vite-pwa/workbox-window": "^8.0.15",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.93.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.8",
-    "vite-plugin-pwa": "^2.0.0",
-    "workbox-window": "^7.4.1"
+    "vite": "^8.3.8"
   },
   "engines": {
     "node": ">=22.18"

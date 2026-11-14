@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// The service worker, built from this file by vite-plugin-pwa (injectManifest)
+// The service worker, built from this file by @vite-pwa/workbox-build (vite.config.ts)
 // using Workbox's runtime from @vite-pwa/workbox-swkit. Import from the
 // subpath exports (…/precaching, …/routing): the package's barrel file is only
 // meant for @vite-pwa/workbox-build.

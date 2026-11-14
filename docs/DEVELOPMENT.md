@@ -102,24 +102,35 @@ The site is then at `https://<owner>.github.io/pocket-strike/`.
 
 ## PWA (offline + installable)
 
-`vite-plugin-pwa` (configured in `vite.config.ts`) builds the service worker and `manifest.webmanifest`.
+Everything is built from the `@vite-pwa/workbox-*` packages, with no `vite-plugin-pwa`. `vite.config.ts` has two
+plugins:
 
-- **The service worker is our own code:** `src/sw.ts`, built with the `injectManifest` strategy. It uses
-  Workbox's runtime from [`@vite-pwa/workbox-swkit`](https://github.com/vite-pwa/workbox/tree/main/packages/swkit),
+- `webManifest()`, a few lines of our own: writes `manifest.webmanifest` (from `MANIFEST`) into the build
+  and links it from `index.html`. It only runs for builds, so the dev server has no manifest.
+- `ViteWorkboxPWAPlugin` from [`@vite-pwa/workbox-build`](https://github.com/vite-pwa/workbox) (strategy
+  `build-sw`): once the app is built, it bundles `src/sw.ts` with Vite into `dist/sw.js` and injects the
+  precache list. Precached files are picked by `globPatterns`, so a new kind of runtime asset (another
+  font format, an image) has to be added there.
+
+Registration lives in `src/pwa.ts`, which loads `@vite-pwa/workbox-window` lazily and registers
+`./sw.js` "prompt" style (see Updates below).
+
+- **The service worker is our own code:** `src/sw.ts`. It uses Workbox's runtime from [`@vite-pwa/workbox-swkit`](https://github.com/vite-pwa/workbox/tree/main/packages/swkit),
   the consolidated ESM build of the Workbox service worker libraries.
   - Import from its subpath exports (`@vite-pwa/workbox-swkit/precaching`, `/routing`, `/core`). The
     package's barrel file is only meant for `@vite-pwa/workbox-build`.
-  - The build bundles `src/sw.ts` into a single classic script (`dist/sw.js`, about 17 KB, 6 KB
-    gzipped) and injects the precache list in place of `self.__WB_MANIFEST`.
+  - The build bundles `src/sw.ts` into a single classic script (`dist/sw.js`, about 20 KB, with the
+    Workbox runtime inlined) and injects the precache list in place of `self.__WB_MANIFEST`.
   - It precaches with swkit's `parallel` option (4 at a time), serves `index.html` for navigations,
     claims clients on first install, and calls `skipWaiting()` only when the page sends
     `{ type: 'SKIP_WAITING' }`.
 
 - **Offline:** everything the game needs is precached (JS, CSS, HTML, the self-hosted woff2 fonts,
-  icons), about 700 KB in 15 files. Fonts come from `@fontsource/*` rather than Google Fonts, so
+  icons and the manifest): 18 files, about 1.1 MB before compression. Fonts come from `@fontsource/*` rather than Google Fonts, so
   nothing loads from another origin at runtime.
-- **Updates:** `registerType: 'prompt'`. A new build installs in the background and waits; `src/pwa.ts`
-  shows an "Update" button in the menu and an "Update" toast, and nothing reloads until the player taps it (which sends `SKIP_WAITING`), so
+- **Updates:** "prompt" style. A new build installs in the background and waits; `src/pwa.ts`
+  shows an "Update" button in the menu and an "Update" toast, and nothing reloads until the player taps it (which sends `SKIP_WAITING`; the page reloads once the
+  new worker takes control), so
   an update never interrupts a game. Besides the browser's own check on navigation, `src/pwa.ts` calls `registration.update()` on
   startup, whenever the app returns to the foreground, and hourly. An installed game can stay open
   for days, and the navigation check alone proved unreliable in testing.
@@ -195,7 +206,7 @@ as a fixed number and resized the Bungee display text).
 | Saved settings and records                   | `storage.ts`                                                                                    |
 | Sounds                                       | how each sounds: `audio-synth.ts`; levels, panning, reverb, when they play: `audio.ts`          |
 | Lane artwork                                 | `paintLane` in `art.ts`                                                                         |
-| App name, colours, icons in the manifest     | `vite.config.ts` (`VitePWA({ manifest })`), `tools/icons/`                                      |
+| App name, colours, icons in the manifest     | `MANIFEST` in `vite.config.ts`, `tools/icons/`                                                  |
 | Install / update prompts                     | `src/pwa.ts`                                                                                    |
 
 After physics or balance changes, re-run the sims and update the numbers in `docs/PHYSICS.md` /
