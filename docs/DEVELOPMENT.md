@@ -18,7 +18,7 @@ TypeScript-only runtime syntax such as enums and parameter properties (`erasable
 | Command | What it does | Time |
 | --- | --- | --- |
 | `npm run typecheck` | TypeScript, strict mode | seconds |
-| `npm test` | Scoring and swing-detection unit tests + physics regression checks (`tools/sim/settle.ts`) | ~1 min |
+| `npm test` | Scoring, swing-detection and sound-rendering unit tests + physics regression checks (`tools/sim/settle.ts`) | seconds |
 | `npm run sim:pinfall` | Pinfall survey for both racks and every power-up | ~2–5 min |
 | `npm run sim:balance` | Neon Run win rates by skill level (`--runs 30`) | ~5–10 min |
 
@@ -160,7 +160,7 @@ as a fixed number and resized the Bungee display text).
 | Rack shapes | `CLASSIC_RACK` / `MEGA_RACK` in `constants.ts` |
 | Stage targets, perks, power-up odds | `run.ts` |
 | Banners, scoreboard, shop | `hud.ts`, `index.html`, `style.css` |
-| Sounds | `audio.ts` |
+| Sounds | how each sounds: `audio-synth.ts`; levels, panning, reverb, when they play: `audio.ts` |
 | Lane artwork | `paintLane` in `art.ts` |
 | App name, colours, icons in the manifest | `vite.config.ts` (`VitePWA({ manifest })`), `tools/icons/` |
 | Install / update prompts | `src/pwa.ts` |

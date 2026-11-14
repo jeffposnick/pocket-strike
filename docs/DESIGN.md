@@ -71,7 +71,9 @@ src/
   swing.ts       Phone-swing detection (pure TypeScript, runs in Node)
   motion.ts      Motion sensor access and buffering for swing controls
   swing-debug.ts Swing tuning overlay, loaded only with ?swingdebug
-  audio.ts       Web Audio synth effects (no audio files)
+  audio.ts       Sound effects: Web Audio playback, reverb, panning, the rolling-ball loop
+  audio-synth.ts Sound synthesis (pure TypeScript, runs in a worker and in Node)
+  audio-worker.ts Renders the sounds off the main thread
   pwa.ts         Service worker registration, install button, update prompt
   sw.ts          The service worker (Workbox runtime via @vite-pwa/workbox-swkit)
   style.css      HUD and menu styles
@@ -117,6 +119,25 @@ so resting pins can't shuffle.
 - **Type:** Bungee for display, Rubik for UI, self-hosted via `@fontsource` (Latin subset) with system fallbacks.
 - **Banners:** escalate with the result. STRIKE / DOUBLE / TURKEY / N-BAGGER in Classic;
   Nice Hit / Big Hit / MEGA STRIKE in Neon Run.
+
+## Sound
+
+All sound is synthesized; there are no audio files. `src/audio-synth.ts` renders every sound once,
+in a Web Worker when audio unlocks on the first tap (about half a second of work that would
+otherwise stall the game), and `src/audio.ts` plays the results.
+
+- **Physical sounds are modelled, not beeps.** A pin is a set of decaying resonant modes in a free
+  bar's ratios (1 : 2.76 : 5.40 : 8.93) plus a hollow body mode and a noise click; each render varies
+  pitch and decay, and playback varies rate and gain with how hard the hit was. The ball's hit adds a
+  low pitch-dropping thump; a solid hit adds a rendered cascade of scattering pins. The side panels,
+  gutter channel, pit cushion and pinsetter each have their own render.
+- **The roll** is a seamless loop of brown noise with a faint board grain, filtered live by the ball's
+  speed, with a slow wobble at its turning rate. In the gutter a resonant boost makes it ring hollow.
+- **Space:** every sound is panned to where it happened across the lane and sent to a convolution
+  reverb whose impulse response is itself synthesized (early reflections plus a darkening stereo tail).
+  A bus compressor keeps a 55-pin pile-up from clipping.
+- **Musical cues** use FM bells (strike fanfare over a soft major-ninth pad, spare chime, power-up
+  sparkle) and a marimba (the falling figure for misses), all rendered up front.
 
 ## Offline and installable
 

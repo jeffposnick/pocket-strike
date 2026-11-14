@@ -596,7 +596,7 @@ export class Lanes extends ex.Scene {
     this.trail = [];
     this.hud.hint(false);
     this.hud.showThrow(speedToMph(speed), spin);
-    this.sfx.whoosh();
+    this.sfx.release();
     this.sfx.rollStart();
     this.rollSoundOn = true;
     buzz(12);
@@ -823,12 +823,17 @@ export class Lanes extends ex.Scene {
     }
   }
 
+  /** Stereo position for a sound at lane x: -1 at the left wall, 1 at the right. */
+  private panAt(x: number): number {
+    return Math.max(-1, Math.min(1, x / WALL_X));
+  }
+
   private handleEvents(): void {
     for (const e of this.sim.events) {
       switch (e.type) {
         case 'ballPin': {
           const big = e.power > 380;
-          this.sfx.clack(Math.min(1, e.power / 500), big);
+          this.sfx.clack(Math.min(1, e.power / 500), big, this.panAt(e.x));
           this.spawnSparks(e.x, e.y, e.power * 1.3, false);
           this.spawnSparks(e.x, e.y, e.power * 0.6, true);
           this.shake = Math.max(this.shake, Math.min(12, e.power / 60));
@@ -841,22 +846,22 @@ export class Lanes extends ex.Scene {
           break;
         }
         case 'pinPin':
-          this.sfx.clack(Math.min(1, e.power / 420));
+          this.sfx.clack(Math.min(1, e.power / 420), false, this.panAt(e.x));
           this.spawnSparks(e.x, e.y, e.power * 0.6, true);
           this.shake = Math.max(this.shake, Math.min(6, e.power / 90));
           break;
         case 'wall':
-          this.sfx.clack(Math.min(0.6, e.power / 600));
+          this.sfx.panel(Math.min(1, e.power / 600), this.panAt(e.x));
           break;
         case 'bumper':
-          this.sfx.thump(0.5);
+          this.sfx.thump(0.5, this.panAt(e.x));
           this.spawnSparks(e.x, e.y, 300, false);
           break;
         case 'gutter':
-          this.sfx.womp();
+          this.sfx.gutter(this.panAt(e.x));
           break;
         case 'pit':
-          this.sfx.thump(0.25);
+          this.sfx.thump(0.25, this.panAt(e.x));
           break;
         case 'pinDown':
           if (this.run && e.kind !== 'normal') {
@@ -867,7 +872,7 @@ export class Lanes extends ex.Scene {
             this.hud.floatText(label, page.x, page.y, info.color);
             this.hud.renderInventory(this.run, (k) => this.toggleArm(k));
             this.hud.renderRun(this.run, this.frame);
-            this.sfx.collect();
+            this.sfx.collect(this.panAt(e.x));
             this.spawnSparks(e.x, e.y, 700, false);
           }
           break;
@@ -876,7 +881,7 @@ export class Lanes extends ex.Scene {
           this.shake = Math.max(this.shake, 24);
           this.hitStop = Math.max(this.hitStop, 0.09);
           this.hud.flash('rgba(255,140,60,0.7)');
-          this.sfx.boom();
+          this.sfx.boom(this.panAt(e.x));
           this.spawnSparks(e.x, e.y, 1800, false);
           this.spawnSparks(e.x, e.y, 1200, true);
           buzz([60, 30, 80]);
@@ -889,7 +894,7 @@ export class Lanes extends ex.Scene {
           }
           pts.push({ x: e.x2, y: e.y2 });
           this.zapBolts.push({ pts, t: 0 });
-          this.sfx.zap();
+          this.sfx.zap(this.panAt((e.x1 + e.x2) / 2));
           this.shake = Math.max(this.shake, 6);
           break;
         }
@@ -953,7 +958,7 @@ export class Lanes extends ex.Scene {
             this.sfx.rollStop();
             this.rollSoundOn = false;
           } else {
-            this.sfx.rollUpdate(Math.hypot(b.vx, b.vy) / MAX_SPEED, b.gutter);
+            this.sfx.rollUpdate(Math.hypot(b.vx, b.vy) / MAX_SPEED, b.gutter, this.panAt(b.x));
           }
         }
         // Follow the ball down the lane, but stay on the pins once it reaches them.
@@ -977,7 +982,7 @@ export class Lanes extends ex.Scene {
           else {
             this.setPhase('sweep', 1000);
             this.sweepCleared = false;
-            this.sfx.whoosh();
+            this.sfx.sweep();
           }
         }
         break;
