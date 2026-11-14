@@ -399,12 +399,14 @@ function pinProfilePath(ctx: CanvasRenderingContext2D, x: number, y: number, len
 }
 
 /** Pin seen from above while standing. `accent` marks a special pin. */
-export function makeStandingPin(accent?: string): ex.Canvas {
+export function makeStandingPin(accent?: string, quality = 1): ex.Canvas {
   const size = 56;
   const c = size / 2;
   return new ex.Canvas({
     width: size,
     height: size,
+    quality,
+    smoothing: true,
     cache: true,
     draw: (ctx) => {
       ctx.clearRect(0, 0, size, size);
@@ -459,7 +461,7 @@ export function makeStandingPin(accent?: string): ex.Canvas {
 }
 
 /** Pin lying on its side, head pointing toward +x. */
-export function makeFallenPin(accent?: string): ex.Canvas {
+export function makeFallenPin(accent?: string, quality = 1): ex.Canvas {
   const wdt = PIN_LEN + 24;
   const hgt = PIN_R * 2 + 22;
   const x0 = 12;
@@ -467,6 +469,8 @@ export function makeFallenPin(accent?: string): ex.Canvas {
   return new ex.Canvas({
     width: wdt,
     height: hgt,
+    quality,
+    smoothing: true,
     cache: true,
     draw: (ctx) => {
       ctx.clearRect(0, 0, wdt, hgt);
@@ -510,10 +514,7 @@ export const BALL_STYLES: BallStyle[] = [
   { name: 'Venom', a: '#b6ff3b', b: '#0d7a3a', swirl: '#f2ffcc' },
 ];
 
-/**
- * The ball graphics take a `quality` (bitmap oversampling) so they stay crisp when the actor is
- * scaled up (Mega Ball, Snowball, Wide perk) and on high-DPI screens; see `ballQuality()`.
- */
+/** The ball and pin graphics take a `quality` (bitmap oversampling); see `rasterQuality()`. */
 export function makeBall(style: BallStyle, quality = 1): ex.Canvas {
   const size = BALL_R * 2 + 4;
   const c = size / 2;
@@ -609,8 +610,12 @@ export function makeBallGloss(quality = 1): ex.Canvas {
   });
 }
 
-/** Bitmap quality for a ball drawn at `screenScale` device pixels per world unit, in steps so it rarely rebuilds. */
-export function ballQuality(screenScale: number): number {
+/**
+ * Bitmap quality (Raster oversampling) for a sprite drawn at `screenScale` device pixels per world
+ * unit, in half steps so it rarely rebuilds. Used by the ball and pins so they stay crisp when scaled
+ * up (Mega Ball, Snowball, Wide perk) and on high-DPI screens.
+ */
+export function rasterQuality(screenScale: number): number {
   return Math.min(12, Math.max(1, Math.ceil(screenScale * 2) / 2));
 }
 

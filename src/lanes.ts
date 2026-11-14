@@ -1,6 +1,5 @@
 import * as ex from 'excalibur';
 import {
-  ballQuality,
   makeBall,
   makeBallGloss,
   makeBallShadow,
@@ -8,6 +7,7 @@ import {
   makeFallenPin,
   makeLaneTiles,
   makeStandingPin,
+  rasterQuality,
   NEON,
   repaintLane,
 } from './art.ts';
@@ -109,8 +109,10 @@ export class Lanes extends ex.Scene {
 
   // Actors
   private readonly pinActors: ex.Actor[] = [];
-  private readonly standingGfx = makeStandingPin();
-  private readonly fallenGfx = makeFallenPin();
+  private standingGfx = makeStandingPin();
+  private fallenGfx = makeFallenPin();
+  /** Bitmap quality the pin graphics were last built at (see `rasterQuality`). */
+  private pinQ = 1;
   private readonly specialGfx = new Map<PinKind, { standing: ex.Canvas; fallen: ex.Canvas }>();
   private readonly ball = new ex.Actor({ z: 5 });
   private readonly ballGloss = new ex.Actor({ z: 5.1 });
@@ -132,7 +134,7 @@ export class Lanes extends ex.Scene {
   private lastX = 0;
   private bumpers = false;
   private style: BallStyle | null = null;
-  /** Bitmap quality the ball graphics were last built at (see `ballQuality`). */
+  /** Bitmap quality the ball graphics were last built at (see `rasterQuality`). */
   private ballQ = 0;
   private throws = 0;
   private mode: Mode = 'classic';
@@ -183,10 +185,7 @@ export class Lanes extends ex.Scene {
     this.add(this.spotsMega);
     this.spotsMega.graphics.isVisible = false;
     this.ensurePinActors();
-    for (const kind of ['gold', ...DROPS] as PinKind[]) {
-      const info = pinInfo(kind)!;
-      this.specialGfx.set(kind, { standing: makeStandingPin(info.color), fallen: makeFallenPin(info.color) });
-    }
+    this.buildPinGfx(this.pinQ);
     this.add(this.ballShadow);
     this.add(this.ball);
     this.add(this.ballGloss);
@@ -1231,6 +1230,8 @@ export class Lanes extends ex.Scene {
     const time = performance.now() / 1000;
     const lift = this.liftAmount();
     const ps = this.sim.layout.pinScale;
+    // Pins pop up to ~1.5x while the rack drops in; size bitmaps for their usual on-lane scale.
+    this.ensurePinQuality(ps * 1.2);
     for (let i = this.sim.pins.length; i < this.pinActors.length; i++) this.pinActors[i].graphics.isVisible = false;
     this.sim.pins.forEach((p, i) => {
       const a = this.pinActors[i];
@@ -1290,6 +1291,29 @@ export class Lanes extends ex.Scene {
     this.ballShadow.graphics.isVisible = this.phase !== 'sweep';
   }
 
+  /** Device pixels per world unit at the current resolution, pixel ratio and camera zoom. */
+  private devicePerWorld(engine: ex.Engine): number {
+    return (engine.canvas.width / engine.screen.resolution.width) * this.zoom;
+  }
+
+  private buildPinGfx(q: number): void {
+    this.pinQ = q;
+    this.standingGfx = makeStandingPin(undefined, q);
+    this.fallenGfx = makeFallenPin(undefined, q);
+    for (const kind of ['gold', ...DROPS] as PinKind[]) {
+      const info = pinInfo(kind)!;
+      this.specialGfx.set(kind, { standing: makeStandingPin(info.color, q), fallen: makeFallenPin(info.color, q) });
+    }
+  }
+
+  /** Rebuild the pin bitmaps when they're drawn bigger than they were rasterized for. */
+  private ensurePinQuality(scale: number): void {
+    const engine = this.engine;
+    if (!engine) return;
+    const q = rasterQuality(scale * this.devicePerWorld(engine));
+    if (q > this.pinQ) this.buildPinGfx(q);
+  }
+
   /**
    * Rebuild the ball bitmaps when the ball is drawn bigger than they were rasterized for (Mega Ball,
    * Snowball, Wide perk, high-DPI screens), so it stays crisp instead of being stretched.
@@ -1297,8 +1321,7 @@ export class Lanes extends ex.Scene {
   private ensureBallQuality(scale: number): void {
     const engine = this.engine;
     if (!this.style || !engine) return;
-    const devicePerWorld = (engine.canvas.width / engine.screen.resolution.width) * this.zoom;
-    const q = ballQuality(scale * devicePerWorld);
+    const q = rasterQuality(scale * this.devicePerWorld(engine));
     if (q <= this.ballQ) return;
     this.ballQ = q;
     this.ball.graphics.use(makeBall(this.style, q));
