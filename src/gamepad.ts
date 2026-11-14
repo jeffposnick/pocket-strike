@@ -82,7 +82,7 @@ export class Gamepads {
       }
       this.read(gp, st, t, frame);
     }
-    for (const index of [...this.pads.keys()]) {
+    for (const index of this.pads.keys()) {
       if (!seen.has(index)) {
         this.pads.delete(index);
         frame.events.push({ type: 'disconnected', count: this.pads.size });

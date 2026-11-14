@@ -15,12 +15,20 @@ TypeScript-only runtime syntax such as enums and parameter properties (`erasable
 
 ## Checks
 
-| Command               | What it does                                                                                                             | Time      |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `npm run typecheck`   | TypeScript, strict mode                                                                                                  | seconds   |
-| `npm test`            | Scoring, flick/stick, swing-detection and sound-rendering unit tests + physics regression checks (`tools/sim/settle.ts`) | seconds   |
-| `npm run sim:pinfall` | Pinfall survey for both racks and every power-up                                                                         | ~2–5 min  |
-| `npm run sim:balance` | Neon Run win rates by skill level (`--runs 30`)                                                                          | ~5–10 min |
+| Command                           | What it does                                                                                                             | Time      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------- |
+| `npm run typecheck`               | TypeScript, strict mode                                                                                                  | seconds   |
+| `npm run lint`                    | oxlint (correctness rules, warnings fail)                                                                                | instant   |
+| `npm run format` / `format:check` | oxfmt: format everything, or only check                                                                                  | instant   |
+| `npm test`                        | Scoring, flick/stick, swing-detection and sound-rendering unit tests + physics regression checks (`tools/sim/settle.ts`) | seconds   |
+| `npm run sim:pinfall`             | Pinfall survey for both racks and every power-up                                                                         | ~2–5 min  |
+| `npm run sim:balance`             | Neon Run win rates by skill level (`--runs 30`)                                                                          | ~5–10 min |
+
+Linting and formatting use the [Oxc](https://oxc.rs) tools, configured in `.oxlintrc.json` and
+`.oxfmtrc.json` (120 columns, single quotes; `package-lock.json` is left to npm). oxfmt covers TypeScript,
+CSS, HTML, JSON and Markdown alike. oxlint runs only its `correctness` category: the stricter categories
+were tried and mostly flagged deliberate code, such as `hud.ts` assigning `onclick` so that reopening a
+dialog replaces its handlers instead of stacking more.
 
 Every test is deterministic: the physics checks seed each roll (`seeded()` in `tools/sim/helpers.ts`)
 and the swing tests seed their synthetic noise, so a run gives the same numbers every time and a
@@ -80,7 +88,7 @@ When automating with Playwright:
 Every push to `main` (including merged pull requests) runs `.github/workflows/deploy.yml`. It can also
 be run by hand from the Actions tab.
 
-1. **build:** install, `npm test`, `npm run build`, then upload `dist/` as the Pages artifact
+1. **build:** install, `npm run lint`, `npm run format:check`, `npm test`, `npm run build`, then upload `dist/` as the Pages artifact
    (`actions/upload-pages-artifact`).
 2. **deploy:** publish that artifact with `actions/deploy-pages` to the `github-pages` environment.
 

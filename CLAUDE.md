@@ -13,6 +13,8 @@ roguelike "Neon Run" mode with a 55-pin rack.
 ## Checks
 
 - Type-check: `npm run typecheck`
+- Lint: `npm run lint` (oxlint). Format: `npm run format` (oxfmt), checked in CI by `npm run format:check`.
+  Run `npm run format` before committing; CI fails on unformatted files.
 - Tests: `npm test` (scoring, flick/stick, swing-detection and sound-rendering unit tests and physics regression checks; seconds)
 - Build: `npm run build`
 
@@ -42,6 +44,9 @@ roguelike "Neon Run" mode with a 55-pin rack.
 
 ## Conventions
 
+- Don't "fix" `on<event> =` assignments in `hud.ts` into `addEventListener`: dialogs reassign their
+  handlers each time they open, and listeners would stack. Before enabling a stricter oxlint rule or
+  category, check its hits are real problems (see "Checks" in docs/DEVELOPMENT.md).
 - `src/sim.ts`, `src/run.ts`, `src/scoring.ts`, `src/constants.ts`, `src/flick.ts`, `src/swing.ts` and
   `src/audio-synth.ts` must stay free of Excalibur, DOM and Web Audio code so `tools/sim/` can run them in Node.
 - Use explicit `.ts` import extensions and erasable TypeScript only (no enums or parameter properties):

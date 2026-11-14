@@ -9,6 +9,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc",
+    "lint": "oxlint --deny-warnings",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "test": "node tools/sim/scoring.test.ts && node tools/sim/swing.test.ts && node tools/sim/flick.test.ts && node tools/sim/audio.test.ts && node tools/sim/settle.ts",
     "sim:pinfall": "node tools/sim/pinfall.ts",
     "sim:balance": "node tools/sim/run-balance.ts"
@@ -20,6 +23,8 @@
   },
   "devDependencies": {
     "@vite-pwa/workbox-swkit": "^8.0.13",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vite-plugin-pwa": "^2.0.0",

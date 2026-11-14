@@ -149,8 +149,7 @@ export function detectSwing(all: readonly MotionSample[], releaseT: number): Swi
   if (k < 0 || norm(rate(s[k])) < SWING.minPeak) return null;
 
   // Orientation track: q[i] maps phone-frame vectors at sample i into the phone frame at sample k.
-  const q: Q[] = new Array(n);
-  q[k] = [1, 0, 0, 0];
+  const q = Array.from({ length: n }, (): Q => [1, 0, 0, 0]);
   for (let i = k + 1; i < n; i++) {
     const w = scale(rate(s[i - 1]).map((v, j) => (v + rate(s[i])[j]) / 2) as V3, DEG * (s[i].t - s[i - 1].t));
     q[i] = qmul(q[i - 1], qexp(w));
