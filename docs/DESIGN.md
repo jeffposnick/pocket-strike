@@ -81,11 +81,12 @@ phones: tune them with the `?swingdebug` overlay (see DEVELOPMENT.md).
 ```
 src/
   main.ts        Engine setup (540×960 portrait, FitScreenAndFill) and scene start
-  lanes.ts       The scene: phases, input, camera, effects, mode switching
+  lanes.ts       The scene: phases, input, camera, game flow, mode switching
+  effects.ts     Particles drawn over the lane: sparks, flames, confetti, rings, lightning, lasers
   sim.ts         Ball and pin physics. Pure TypeScript, no Excalibur, runs in Node
   constants.ts   Lane geometry, rack layouts, tuning constants
   art.ts         Procedural canvas art: lane tiles, pins, ball, deck spots
-  scoring.ts     Ten-pin scoring and split detection (Classic)
+  scoring.ts     Ten-pin scoring, frame/ball progression and split detection (Classic)
   run.ts         Neon Run state: stages, perks, power-ups, points, shop offers
   hud.ts         HTML overlay: scoreboard, run bar, banners, menus, shop
   flick.ts       Flick and controller-stick throws (pure TypeScript, runs in Node)
@@ -97,6 +98,7 @@ src/
   audio-synth.ts Sound synthesis (pure TypeScript, runs in a worker and in Node)
   audio-worker.ts Renders the sounds off the main thread
   pwa.ts         Service worker registration, install button, update prompt
+  storage.ts     localStorage wrapper (every saved key is listed in `StorageKey`)
   sw.ts          The service worker (Workbox runtime via @vite-pwa/workbox-swkit)
   style.css      HUD and menu styles
 tools/sim/       Headless simulations and tests that import src/ directly
@@ -120,7 +122,8 @@ so resting pins can't shuffle.
 - **Pins and ball:** shared cached canvases (`makeStandingPin`, `makeFallenPin`, `makeBall`). Special pins
   get tinted variants. Actor scale handles Mega Rack pin size, topple animation and wobble.
 - **Effects** (trail, sparks, confetti, lightning, bomb rings, flames, sweep bar, aim guide) are drawn in
-  `Scene.onPostDraw`. That runs in screen space, so it applies the camera by hand:
+  `Scene.onPostDraw`. Particles live in `Effects` (`src/effects.ts`); the scene spawns them from sim
+  events and draws the trail, guides and power-up auras itself. That runs in screen space, so it applies the camera by hand:
   translate to screen centre, scale by zoom, translate by −camera.
 - **HUD** is plain HTML over the canvas, so text is crisp and CSS animates banners.
   Its root has `pointer-events: none`; only buttons opt back in. Gestures listen on `window`, so a

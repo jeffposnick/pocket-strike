@@ -29,8 +29,12 @@ export const POWERS: Record<PowerId, PowerInfo & { rarity: Rarity }> = {
   midas: { name: 'Midas Ball', icon: '👑', color: '#ffcf33', rarity: 'legendary', desc: 'Every pin it knocks down is gold: triple chips, and +1 coin for every 5 pins.' },
 };
 
+/** Every power-up of one rarity. */
+export const powersOf = (rarity: Rarity): PowerId[] =>
+  (Object.keys(POWERS) as PowerId[]).filter((k) => POWERS[k].rarity === rarity);
+
 /** The power-ups special pins can drop. */
-export const DROPS = (Object.keys(POWERS) as PowerId[]).filter((k): k is DropId => POWERS[k].rarity === 'common');
+export const DROPS = powersOf('common') as DropId[];
 
 export const PRICES: Record<Rarity, number> = { common: 3, rare: 5, legendary: 8 };
 export const MYSTERY_PRICE = 2;
@@ -138,12 +142,10 @@ export class Run {
   stage = 0;
   stageScore = 0;
   totalScore = 0;
-  frameInStage = 0;
   coins = 2;
   readonly perks = new Map<PerkId, number>();
   inventory: PowerId[] = [];
   armed = new Set<number>();
-  strikes = 0;
   bigHits = 0;
   spares = 0;
   specialsHit = 0;
@@ -231,8 +233,10 @@ export class Run {
 
   /** Removes the armed power-ups from the inventory and returns them. */
   consumeArmed(): PowerId[] {
-    const used = [...this.armed].sort((a, b) => b - a).map((i) => this.inventory[i]);
-    for (const i of [...this.armed].sort((a, b) => b - a)) this.inventory.splice(i, 1);
+    // Highest slot first, so each splice leaves the lower indices in place.
+    const slots = [...this.armed].sort((a, b) => b - a);
+    const used = slots.map((i) => this.inventory[i]);
+    for (const i of slots) this.inventory.splice(i, 1);
     this.armed.clear();
     return used;
   }
@@ -282,7 +286,6 @@ export class Run {
   nextStage(): void {
     this.stage++;
     this.stageScore = 0;
-    this.frameInStage = 0;
   }
 
   /** Three perks to choose from, never offering one already maxed out. */
@@ -309,7 +312,7 @@ export class Run {
   offerShop(): ShopOffer[] {
     const taken = new Set<PowerId>();
     const pick = (rarity: Rarity): PowerId => {
-      const pool = (Object.keys(POWERS) as PowerId[]).filter((k) => POWERS[k].rarity === rarity && !taken.has(k));
+      const pool = powersOf(rarity).filter((k) => !taken.has(k));
       const p = pool[Math.floor(this.rand() * pool.length)];
       taken.add(p);
       return p;
@@ -327,7 +330,7 @@ export class Run {
   mysteryPower(): PowerId {
     const r = this.rand();
     const rarity: Rarity = r < 0.07 ? 'legendary' : r < 0.35 ? 'rare' : 'common';
-    const pool = (Object.keys(POWERS) as PowerId[]).filter((k) => POWERS[k].rarity === rarity);
+    const pool = powersOf(rarity);
     return pool[Math.floor(this.rand() * pool.length)];
   }
 

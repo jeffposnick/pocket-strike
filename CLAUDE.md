@@ -16,6 +16,30 @@ roguelike "Neon Run" mode with a 55-pin rack.
 - Tests: `npm test` (scoring, flick/stick, swing-detection and sound-rendering unit tests and physics regression checks; seconds)
 - Build: `npm run build`
 
+## Where code goes
+
+- `src/lanes.ts` is the scene and is already the biggest file: keep it to orchestration (phases, input,
+  camera, wiring sim events to sound/HUD/effects). Put new logic in the module that owns it instead.
+- Game rules (scoring, frame progression, run economy) belong in the pure modules (`scoring.ts`,
+  `run.ts`, `sim.ts`) with unit tests in `tools/sim/`, not in `lanes.ts` or `hud.ts`.
+- Particles go in `src/effects.ts`; all DOM work goes in `src/hud.ts` as ordinary class methods (no
+  `Hud.prototype` patching).
+- Read and write localStorage only through `src/storage.ts`, and add any new key to `StorageKey`.
+- `tools/sim/run-balance.ts` replays the Neon Run frame loop on its own (Encore, Safety Net, Midas coins).
+  When those rules change in `lanes.ts`/`run.ts`, update it too.
+
+## Refactoring safely
+
+- `npm test` output is deterministic, including the seeded physics checks in `tools/sim/settle.ts`. Save
+  it before a refactor and diff it after (ignore the audio line's render time): identical output means the
+  physics didn't move.
+- Seeded results depend on the order of `this.rand()` calls in `sim.ts`/`run.ts`; don't reorder or add
+  calls unless the change is meant to alter outcomes (then re-run the sims and update the docs' tables).
+- For anything the scene does, smoke-test in Chromium against the dev server with `window.lanes`
+  (see "Testing in a real browser" in docs/DEVELOPMENT.md for how to play fast in a script).
+- When adding, moving or renaming a module, update the architecture list in docs/DESIGN.md and
+  "Where to change things" in docs/DEVELOPMENT.md.
+
 ## Conventions
 
 - `src/sim.ts`, `src/run.ts`, `src/scoring.ts`, `src/constants.ts`, `src/flick.ts`, `src/swing.ts` and

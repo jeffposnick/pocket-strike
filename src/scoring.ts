@@ -61,6 +61,45 @@ export function scoreFrames(rolls: readonly number[]): FrameView[] {
   return frames;
 }
 
+/** Where a Classic game stands after a list of rolls: what comes next, and on what rack. */
+export interface ClassicPosition {
+  /** 0-based frame of the next ball (stays 9 once the game is over). */
+  frame: number;
+  /** 0-based ball within that frame. */
+  ball: number;
+  /** The next ball is at a fresh rack of ten. */
+  freshRack: boolean;
+  over: boolean;
+}
+
+export function classicPosition(rolls: readonly number[]): ClassicPosition {
+  let i = 0;
+  for (let f = 0; f < 9; f++) {
+    if (i >= rolls.length) return { frame: f, ball: 0, freshRack: true, over: false };
+    if (rolls[i] === 10) {
+      i += 1;
+      continue;
+    }
+    if (i + 1 >= rolls.length) return { frame: f, ball: 1, freshRack: false, over: false };
+    i += 2;
+  }
+  const [a, b] = rolls.slice(i);
+  switch (rolls.length - i) {
+    case 0:
+      return { frame: 9, ball: 0, freshRack: true, over: false };
+    case 1:
+      return { frame: 9, ball: 1, freshRack: a === 10, over: false };
+    case 2:
+      if (a === 10 || a + b === 10) {
+        // A strike then a strike, or a spare, earns a fresh rack; a strike then a count leaves pins.
+        return { frame: 9, ball: 2, freshRack: a === 10 ? b === 10 : true, over: false };
+      }
+      return { frame: 9, ball: 2, freshRack: false, over: true };
+    default:
+      return { frame: 9, ball: 3, freshRack: false, over: true };
+  }
+}
+
 /** Score as it stands: every pin so far plus whatever bonus balls have been rolled. */
 export function provisionalTotal(rolls: readonly number[]): number {
   let total = 0;

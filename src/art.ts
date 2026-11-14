@@ -254,7 +254,7 @@ function paintLane(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: num
       g.addColorStop(0.5, '#0f0c22');
       g.addColorStop(1, '#2d2850');
       ctx.fillStyle = g;
-      ctx.fillRect(Math.min(a, b), gTop, GUTTER_PX, gBot - gTop);
+      ctx.fillRect(Math.min(a, b), gTop, GUTTER_W, gBot - gTop);
       glowLine(ctx, b, gTop, b, gBot, NEON.pink, 1.4);
     }
   }
@@ -321,7 +321,6 @@ function paintLane(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: num
   ctx.restore();
 }
 
-const GUTTER_PX = GUTTER_W;
 
 /** Painted pin spots for one rack layout, as an actor laid over the deck. */
 export function makeDeckSpots(layout: RackLayout): ex.Actor {

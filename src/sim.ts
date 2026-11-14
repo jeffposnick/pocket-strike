@@ -107,6 +107,8 @@ export type SimEvent =
   | { type: 'quake' }
   | { type: 'ricochet'; x: number; y: number };
 
+/** Where a gutter ball runs, measured out from the lane edge. */
+const GUTTER_MID = 20;
 const BOMB_RADIUS = 165;
 const MEGA_SCALE = 1.8;
 /** Snowball: each solid hit grows the ball by this much, up to the cap. */
@@ -229,6 +231,11 @@ export class Sim {
     return this.layout.bombRadius ?? BOMB_RADIUS;
   }
 
+  /** Δv that topples a standing pin, after the rack's scale and perk or stage modifiers. */
+  private get fallNeed(): number {
+    return TUNE.fallDv * this.mods.fallMult * (this.layout.fallScale ?? 1);
+  }
+
   get rackSize(): number {
     return this.pins.length;
   }
@@ -264,6 +271,13 @@ export class Sim {
 
   standing(): Pin[] {
     return this.pins.filter((p) => p.state === 'standing');
+  }
+
+  /** Centre of the pins still standing, or null if none are. */
+  standingCentre(): { x: number; y: number } | null {
+    const up = this.standing();
+    if (!up.length) return null;
+    return { x: up.reduce((a, p) => a + p.x, 0) / up.length, y: up.reduce((a, p) => a + p.y, 0) / up.length };
   }
 
   placeBall(x: number): void {
@@ -395,8 +409,7 @@ export class Sim {
         // Ricochet: off the back cushion and through the rack again, angled toward the busier side.
         this.backBounces--;
         b.y = PIT_Y + R;
-        const left = this.pins.filter((p) => p.state === 'standing');
-        const cx = left.length ? left.reduce((a, p) => a + p.x, 0) / left.length : 0;
+        const cx = this.standingCentre()?.x ?? 0;
         const speed = Math.max(900, Math.hypot(b.vx, b.vy) * 0.85);
         const dir = Math.atan2(cx - b.x, 420);
         b.vx = Math.sin(dir) * speed;
@@ -703,7 +716,7 @@ export class Sim {
       const o = this.hole;
       o.t -= h;
       const reach = this.bombRadius * HOLE_REACH;
-      const need = TUNE.fallDv * this.mods.fallMult * (this.layout.fallScale ?? 1);
+      const need = this.fallNeed;
       for (const p of this.pins) {
         if (p.state !== 'standing' && p.state !== 'down') continue;
         const dx = o.x - p.x;
@@ -729,7 +742,7 @@ export class Sim {
     // Earthquake: the deck shakes and standing pins topple at random.
     if (this.quakeT > 0) {
       this.quakeT -= h;
-      const need = TUNE.fallDv * this.mods.fallMult * (this.layout.fallScale ?? 1);
+      const need = this.fallNeed;
       for (const p of this.pins) {
         if (p.state === 'standing') {
           p.wobble = Math.min(1, p.wobble + h * 3);
@@ -751,8 +764,7 @@ export class Sim {
   private openHole(x: number, contactY: number): void {
     this.holeUsed = true;
     // The vortex opens in the middle of what's still standing, in line with the hit.
-    const up = this.pins.filter((p) => p.state === 'standing');
-    const y = up.length ? up.reduce((a, p) => a + p.y, 0) / up.length : contactY - 40;
+    const y = this.standingCentre()?.y ?? contactY - 40;
     this.hole = { x, y, t: HOLE_TIME };
     this.events.push({ type: 'hole', x, y });
     // The first pull is sharp enough to topple what's close.
@@ -799,7 +811,7 @@ export class Sim {
   /** Decides whether a standing pin that just got hit topples or just rocks. */
   private afterHit(p: Pin, dv: number, nx: number, ny: number): void {
     if (p.state !== 'standing') return;
-    const need = TUNE.fallDv * this.mods.fallMult * (this.layout.fallScale ?? 1);
+    const need = this.fallNeed;
     if (dv > need * (0.85 + this.rand() * 0.3)) {
       p.state = 'down';
       p.downT = 0;
@@ -827,7 +839,6 @@ export class Sim {
   }
 }
 
-const GUTTER_MID = 20;
 
 /**
  * Impulse resolution between two rigid bodies at contact point (px, py) with

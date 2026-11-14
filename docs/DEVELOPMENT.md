@@ -40,6 +40,10 @@ l.sim.ball.x = 80;
 l.throwBall(2300, 0, -0.4); // speed (px/s), angle (rad), spin (-1..1, negative hooks left)
 ```
 
+To play quickly in a script, throw whenever `l.phase === 'aim'` and skip the waits between balls with
+`l.phaseT = l.phaseDur` during `result`, `sweep` and `return`. Private fields are plain properties at
+runtime, so `l.run`, `l.rolls` and `l.fx` can be read or set the same way.
+
 When automating with Playwright:
 - Emulate a phone (e.g. `devices['iPhone 13']`) with `deviceScaleFactor: 1`.
 - Headless Chromium renders in software, and above 200 ms per frame Excalibur's clock treats the
@@ -177,6 +181,9 @@ as a fixed number and resized the Bungee display text).
 | Rack shapes | `CLASSIC_RACK` / `MEGA_RACK` in `constants.ts` |
 | Stage targets, perks, power-up odds | `run.ts` |
 | Banners, scoreboard, shop | `hud.ts`, `index.html`, `style.css` |
+| Sparks, confetti, flames and other particles | `effects.ts` |
+| Classic frame/ball progression | `classicPosition` in `scoring.ts` |
+| Saved settings and records | `storage.ts` |
 | Sounds | how each sounds: `audio-synth.ts`; levels, panning, reverb, when they play: `audio.ts` |
 | Lane artwork | `paintLane` in `art.ts` |
 | App name, colours, icons in the manifest | `vite.config.ts` (`VitePWA({ manifest })`), `tools/icons/` |
