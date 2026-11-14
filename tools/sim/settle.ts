@@ -5,9 +5,18 @@
 //     friction, sleeping pins and soft overlap correction).
 //
 //   node tools/sim/settle.ts     (exits non-zero if a check fails)
+//
+// Every roll is seeded, so the checks give the same numbers on every run: a failure is a real
+// change in the physics, never bad luck. `--seed N` reruns them with other rolls.
 import { CLASSIC_RACK, DECK_Y, MEGA_RACK } from '../../src/constants.ts';
 import { Sim } from '../../src/sim.ts';
-import { STEP } from './helpers.ts';
+import { seeded, STEP } from './helpers.ts';
+
+const arg = process.argv.indexOf('--seed');
+const SEED = arg > 0 ? Number(process.argv[arg + 1]) : 1;
+// Rolls per position and speed. Two rolls gave only ~40 fallen Classic pins, too few for the 5%
+// jitter limit: about one seed in four failed it. Eight keeps every seed tried under 4%.
+const REPS = 8;
 
 let failed = false;
 const check = (ok: boolean, msg: string) => {
@@ -24,12 +33,14 @@ for (const [name, layout] of [
   let maxSettleAfterContact = 0;
   let downPins = 0;
   let jittering = 0;
+  let roll = 0;
   for (const x of [-120, -60, 0, 60, 120]) {
     for (const speed of [1400, 2200, 2900]) {
-      for (let r = 0; r < 2; r++) {
-        const s = new Sim(Math.random, layout);
+      for (let r = 0; r < REPS; r++) {
+        const rand = seeded(SEED * 1000 + roll++);
+        const s = new Sim(rand, layout);
         s.placeBall(x);
-        s.launch(speed, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 1.2);
+        s.launch(speed, (rand() - 0.5) * 0.1, (rand() - 0.5) * 1.2);
         let t = 0;
         let contactAt = NaN;
         let gutterBefore = false;

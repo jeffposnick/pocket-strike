@@ -22,8 +22,11 @@ TypeScript-only runtime syntax such as enums and parameter properties (`erasable
 | `npm run sim:pinfall` | Pinfall survey for both racks and every power-up | ~2–5 min |
 | `npm run sim:balance` | Neon Run win rates by skill level (`--runs 30`) | ~5–10 min |
 
-The physics checks are statistical and their thresholds have headroom. A rare flaky failure means
-"look closer", not "retry until green".
+Every test is deterministic: the physics checks seed each roll (`seeded()` in `tools/sim/helpers.ts`)
+and the swing tests seed their synthetic noise, so a run gives the same numbers every time and a
+failure means the code changed, never bad luck. The physics checks still measure rates over many rolls;
+`node tools/sim/settle.ts --seed N` reruns them with different rolls, which is a quick way to see
+how much headroom a threshold has after a physics change.
 
 ## Testing in a real browser
 
