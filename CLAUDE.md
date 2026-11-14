@@ -13,7 +13,7 @@ roguelike "Neon Run" mode with a 55-pin rack.
 ## Checks
 
 - Type-check: `npm run typecheck`
-- Tests: `npm test` (scoring unit tests and physics regression checks; about a minute)
+- Tests: `npm test` (scoring and swing-detection unit tests and physics regression checks; about a minute)
 - Build: `npm run build`
 
 ## Conventions

@@ -29,6 +29,7 @@ import {
   WALL_X,
 } from './constants.ts';
 import type { Hud } from './hud.ts';
+import { Motion, motionNeedsTap, motionSupported } from './motion.ts';
 import { hitTier, Run, pinInfo, POWERS } from './run.ts';
 import { isSplit, provisionalTotal, scoreFrames } from './scoring.ts';
 import { DEFAULT_MODS, NO_POWERS, Sim } from './sim.ts';
@@ -75,6 +76,8 @@ interface Gesture {
   ballX0: number;
   mode: 'position' | 'throw';
   lowestIdx: number;
+  /** Swing controls: the phone started swinging, so the ball stops following the thumb. */
+  frozen: boolean;
 }
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -89,6 +92,11 @@ const CONFETTI_COLORS = [NEON.pink, NEON.cyan, NEON.amber, NEON.violet, '#ffffff
 export class Lanes extends ex.Scene {
   private readonly sim = new Sim();
   private readonly sfx = new Sfx();
+  private readonly motion = new Motion();
+  /** The player chose swing controls (they apply once the sensors are running). */
+  private swingWanted = false;
+  /** Bumped on every swing toggle, so a slow permission answer can't undo a later choice. */
+  private swingToken = 0;
   private phase: Phase = 'menu';
 
   // Actors
@@ -193,8 +201,81 @@ export class Lanes extends ex.Scene {
     window.addEventListener('pointercancel', (e) => this.onUp(e.pointerId, true));
 
     this.hud.onMute((m) => this.sfx.setMuted(m));
+    this.initSwing();
     this.hud.onMenuButton(() => this.openMenu());
     this.openMenu();
+  }
+
+  // ---- Swing controls -----------------------------------------------------------
+
+  /** Swing the phone to bowl, instead of flicking. Off by default; the choice is remembered. */
+  private get swingControls(): boolean {
+    return this.swingWanted && this.motion.active;
+  }
+
+  private initSwing(): void {
+    const supported = motionSupported();
+    this.hud.initSwing(supported, (on) => void this.setSwing(on));
+    try {
+      this.swingWanted = supported && localStorage.getItem('ps-swing') === '1';
+    } catch {
+      /* storage unavailable */
+    }
+    this.hud.setSwing(this.swingWanted);
+    // Where no permission is needed, the sensors can start now. Otherwise (iOS, recent Chrome) access
+    // is asked for on a tap: the switch, or Play.
+    if (this.swingWanted && !motionNeedsTap()) void this.setSwing(true);
+    if (new URLSearchParams(location.search).has('swingdebug')) {
+      void import('./swing-debug.ts').then((m) => m.swingDebug(this.motion));
+    }
+  }
+
+  private async setSwing(on: boolean): Promise<void> {
+    const token = ++this.swingToken;
+    const save = (v: boolean) => {
+      try {
+        localStorage.setItem('ps-swing', v ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+    };
+    if (!on) {
+      this.swingWanted = false;
+      this.motion.stop();
+      save(false);
+      this.hud.setSwing(false);
+      return;
+    }
+    this.hud.setSwing(true);
+    const status = this.motion.active ? 'granted' : await this.motion.request();
+    if (token !== this.swingToken) return;
+    if (status !== 'granted') {
+      this.swingWanted = false;
+      save(false);
+      this.hud.setSwing(
+        false,
+        status === 'denied'
+          ? 'Motion access was blocked. Allow motion sensors for this site in your browser settings to swing.'
+          : 'This device has no motion sensor to swing with.',
+      );
+      return;
+    }
+    const first = !this.swingWanted;
+    this.swingWanted = true;
+    save(true);
+    this.hud.setSwing(true);
+    if (first) {
+      this.throws = 0;
+      if (this.phase === 'aim') this.hud.hint(true);
+      let seen = false;
+      try {
+        seen = localStorage.getItem('ps-swing-intro') === '1';
+        localStorage.setItem('ps-swing-intro', '1');
+      } catch {
+        /* ignore */
+      }
+      if (!seen) this.hud.showSwingIntro();
+    }
   }
 
   // ---- Flow -----------------------------------------------------------------
@@ -208,6 +289,8 @@ export class Lanes extends ex.Scene {
   }
 
   private newGame(style: BallStyle, bumpers: boolean, mode: Mode = this.mode): void {
+    // Called from a tap (Play, Bowl again), when browsers let us ask for motion access.
+    if (this.swingWanted && !this.motion.active) void this.setSwing(true);
     if (style !== this.style) this.ball.graphics.use(makeBall(style));
     this.style = style;
     this.mode = mode;
@@ -401,7 +484,7 @@ export class Lanes extends ex.Scene {
     }
     if (this.gesture) return;
     const s = { x: pos.x, y: pos.y, t: performance.now() / 1000 };
-    this.gesture = { id, samples: [s], startX: pos.x, ballX0: this.sim.ball.x, mode: 'position', lowestIdx: 0 };
+    this.gesture = { id, samples: [s], startX: pos.x, ballX0: this.sim.ball.x, mode: 'position', lowestIdx: 0, frozen: false };
     this.fingerTrail = [s];
     this.fingerFade = 1;
     this.hud.setBoardNumber(boardAt(this.sim.ball.x));
@@ -416,16 +499,25 @@ export class Lanes extends ex.Scene {
       g.samples.shift();
       g.lowestIdx = Math.max(0, g.lowestIdx - 1);
     }
-    this.fingerTrail.push(s);
-    if (this.fingerTrail.length > 60) this.fingerTrail.shift();
+    if (!this.swingControls) {
+      this.fingerTrail.push(s);
+      if (this.fingerTrail.length > 60) this.fingerTrail.shift();
+    }
 
     if (g.mode === 'position') {
       if (pos.y >= g.samples[g.lowestIdx].y) g.lowestIdx = g.samples.length - 1;
       const climbed = g.samples[g.lowestIdx].y - pos.y;
-      if (climbed > 30) {
+      if (this.swingControls) {
+        // The thumb only lines up; once the phone swings, the ball stays put.
+        if (!g.frozen && this.motion.swinging()) {
+          g.frozen = true;
+          this.hud.setBoardNumber(null);
+        }
+      } else if (climbed > 30) {
         g.mode = 'throw';
         this.hud.setBoardNumber(null);
-      } else {
+      }
+      if (g.mode === 'position' && !g.frozen) {
         const lim = LANE_HALF - BALL_R + 8;
         const x = Math.max(-lim, Math.min(lim, g.ballX0 + (pos.x - g.startX)));
         if (boardAt(x) !== boardAt(this.sim.ball.x)) this.sfx.tick();
@@ -440,7 +532,13 @@ export class Lanes extends ex.Scene {
     if (!g || g.id !== id) return;
     this.gesture = null;
     this.hud.setBoardNumber(null);
-    if (cancelled || this.phase !== 'aim' || g.mode !== 'throw') return;
+    if (cancelled || this.phase !== 'aim') return;
+    if (this.swingControls) {
+      const swing = this.motion.release();
+      if (swing) this.throwBall(MIN_SPEED + swing.power * (MAX_SPEED - MIN_SPEED), swing.angle, swing.spin);
+      return;
+    }
+    if (g.mode !== 'throw') return;
 
     const stroke = g.samples.slice(g.lowestIdx);
     const end = stroke[stroke.length - 1];

@@ -18,7 +18,7 @@ TypeScript-only runtime syntax such as enums and parameter properties (`erasable
 | Command | What it does | Time |
 | --- | --- | --- |
 | `npm run typecheck` | TypeScript, strict mode | seconds |
-| `npm test` | Scoring unit tests + physics regression checks (`tools/sim/settle.ts`) | ~1 min |
+| `npm test` | Scoring and swing-detection unit tests + physics regression checks (`tools/sim/settle.ts`) | ~1 min |
 | `npm run sim:pinfall` | Pinfall survey for both racks and every power-up | ~2–5 min |
 | `npm run sim:balance` | Neon Run win rates by skill level (`--runs 30`) | ~5–10 min |
 
@@ -42,6 +42,19 @@ When automating with Playwright:
 - Headless Chromium renders in software, and above 200 ms per frame Excalibur's clock treats the
   frame as 1 ms, so the game crawls at high pixel densities.
 - Frame rates measured headless don't reflect real devices.
+
+## Swing controls
+
+- **Unit tests:** `tools/sim/swing.test.ts` (part of `npm test`) runs `src/swing.ts` against synthetic
+  swings from `tools/sim/swing-synth.ts`, which models an arm swinging with the phone at any grip, with
+  twist, sideways stray, sensor noise and 60 or 100 Hz sampling.
+- **In the browser:** with the dev server running, `node tools/swing-check.ts` replays a synthetic swing
+  through real `devicemotion` events in Chromium and checks the switch, the first-time dialog, the
+  denied-permission message, bowling, and switching back to flicking.
+- **On a phone:** open the game with `?swingdebug`. The overlay plots rotation speed (the amber line is
+  `SWING.minPeak`), shows what each release measured, and "Save last swing" downloads it as JSON.
+  Tune `SWING` in `src/swing.ts` from those numbers. Motion sensors need HTTPS (or localhost), so use the
+  deployed site or an HTTPS tunnel rather than the dev server's LAN address.
 
 ## Deployment
 
@@ -119,6 +132,10 @@ available target (see CLAUDE.md). Patterns in place:
 - **Toast** (`#pwaPill`) is a `popover="manual"` in the top layer, announced with `ariaNotify()` or the
   `#announcer` live region. It never shows over a modal dialog (it would be inert): `pill()` in
   `src/pwa.ts` holds it until the dialog closes. Its Update action is also always in the menu.
+- **Motion sensors** (swing controls) are a progressive enhancement: offered only where
+  `DeviceMotionEvent` exists and the main pointer is coarse, requested from a tap via
+  `DeviceMotionEvent.requestPermission()` where it exists, and turned back off with an explanation if
+  refused. The first-time instructions are another guarded modal `<dialog>`.
 - **Install** prefers `navigator.install()` (Web Install API) and falls back to `beforeinstallprompt`.
 - **Motion:** decorative animations are opted in with `@media (prefers-reduced-motion: no-preference)`;
   ones that carry information (banners, points) swap to an opacity-only keyframe under `reduce` so they
@@ -135,6 +152,7 @@ as a fixed number and resized the Bungee display text).
 | Goal | Place |
 | --- | --- |
 | Feel of throws (speed range, hook strength) | `MIN_SPEED`, `MAX_SPEED`, `HOOK` in `constants.ts`; gesture maths in `Lanes.onUp` |
+| Feel of swing controls | `SWING` in `swing.ts` |
 | How easily pins fall | `TUNE` in `sim.ts`, `fallScale` per rack layout |
 | Rack shapes | `CLASSIC_RACK` / `MEGA_RACK` in `constants.ts` |
 | Stage targets, perks, power-up odds | `run.ts` |

@@ -28,6 +28,34 @@ One gesture does everything (`Lanes.onDown/onMove/onUp` in `src/lanes.ts`):
 
 Tapping during the result or the camera's return skips ahead.
 
+### Swing controls (optional)
+
+On a phone with a gyroscope, "Swing phone to bowl" (menu switch, and the 📱 button next to mute) replaces
+the flick with a real swing. It is off by default and remembered (`ps-swing` in `localStorage`).
+
+1. **Hold** a thumb on the screen. Sliding still lines the ball up, until the phone starts turning
+   faster than 90°/s; then the ball stays put.
+2. **Swing** the arm back and forward, and **let go** (lift the thumb) to bowl. Letting go without a real
+   swing throws nothing, and a finger flick does nothing while swing controls are on.
+
+`src/swing.ts` turns the motion before the release into the same speed, angle and spin a flick produces.
+It doesn't assume how the phone sits in the hand:
+
+- The gyroscope is integrated into an orientation track, so all rotation can be compared in one fixed frame.
+- The arm's direction (in the phone's frame) is the accelerometer reading at the delivery's fastest
+  moment, where the centripetal pull and gravity's reaction both point from the hand to the shoulder.
+- **Speed:** the delivery stroke's peak swing rate (180–650°/s maps onto the speed range).
+- **Hook:** forearm twist about the arm during the stroke; 90° is full hook. Anticlockwise seen from the
+  shoulder (a right-hander's handshake release) hooks left.
+- **Launch angle:** how far the delivery strays from the backswing's plane, scaled and clamped like the flick's.
+
+Motion access is requested from a tap (the switch, or Play), since iOS Safari and recent Chrome only
+prompt then. If access is refused or no sensor answers within 1.5 s, the switch turns itself back off
+and says why. The first switch-on shows a dialog on how to swing and to grip the phone firmly.
+
+The tuning numbers in `SWING` are estimates checked against synthetic swings, not yet against real
+phones: tune them with the `?swingdebug` overlay (see DEVELOPMENT.md).
+
 ## Architecture
 
 ```
@@ -40,6 +68,9 @@ src/
   scoring.ts     Ten-pin scoring and split detection (Classic)
   run.ts         Neon Run state: stages, perks, power-ups, points, shop offers
   hud.ts         HTML overlay: scoreboard, run bar, banners, menus, shop
+  swing.ts       Phone-swing detection (pure TypeScript, runs in Node)
+  motion.ts      Motion sensor access and buffering for swing controls
+  swing-debug.ts Swing tuning overlay, loaded only with ?swingdebug
   audio.ts       Web Audio synth effects (no audio files)
   pwa.ts         Service worker registration, install button, update prompt
   sw.ts          The service worker (Workbox runtime via @vite-pwa/workbox-swkit)
@@ -98,5 +129,5 @@ Details are in [DEVELOPMENT.md](DEVELOPMENT.md#pwa-offline--installable).
 
 - Headless Chromium renders in software at ~5–40 fps, so it can't judge smoothness. Check feel on a real phone.
 - Above 200 ms per frame, Excalibur's clock treats the frame as 1 ms, so a very slow device runs in slow motion rather than skipping.
-- **Ideas not done:** two-player pass-and-play in Classic, left-handed board numbering, more boss
+- **Ideas not done:** two-player pass-and-play in Classic, left-handed board numbering (and a left-handed hook direction for swing controls), more boss
   modifiers, persistent unlocks between runs, haptics tuning, a replay camera.

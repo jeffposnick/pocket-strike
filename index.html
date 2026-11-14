@@ -37,6 +37,7 @@
               <div id="totalWrap">Score <b id="total">0</b></div>
             </div>
             <div class="btns">
+              <button id="swingBtn" aria-label="Swing phone to bowl" aria-pressed="false" hidden>📱</button>
               <button id="mute" aria-label="Mute">🔊</button>
               <button id="menuBtn" aria-label="Menu">☰</button>
             </div>
@@ -75,6 +76,8 @@
         <p class="modeNote">Roguelike: 6 lanes, power-up pins, perks and boss lanes.</p>
         <button id="play" class="ghost">Classic 10 frames</button>
         <label class="toggle"><input type="checkbox" id="bumpers" switch role="switch" /><span></span>Bumpers in Classic</label>
+        <label class="toggle" id="swingToggle" hidden><input type="checkbox" id="swing" switch role="switch" aria-describedby="swingNote" /><span></span>Swing phone to bowl</label>
+        <p id="swingNote" class="swingNote" hidden></p>
         <ul class="how">
           <li><b>Slide</b> your finger sideways to line up the ball.</li>
           <li><b>Flick up</b>: a faster flick means a faster ball.</li>
@@ -124,6 +127,20 @@
         <div id="roBest"></div>
         <button id="roAgain" class="cta" autofocus>New run</button>
         <button id="roMenu" class="ghost">Menu</button>
+      </div>
+    </dialog>
+
+    <dialog id="swingIntro" class="overlay" aria-labelledby="swingTitle">
+      <div class="card">
+        <h2 class="label" id="swingTitle">Swing to bowl</h2>
+        <ul class="how">
+          <li><b>Hold</b> your thumb on the screen. Slide it to line up.</li>
+          <li><b>Swing</b> your arm back, then forward, like a real delivery. A faster swing means a faster ball.</li>
+          <li><b>Let go</b> at the bottom of the swing to bowl.</li>
+          <li><b>Twist</b> your wrist as you let go, like a handshake, to hook.</li>
+        </ul>
+        <p class="swingWarn">Grip the phone firmly and give yourself room. A wrist strap or a grippy case helps.</p>
+        <button id="swingOk" class="cta" autofocus>Got it</button>
       </div>
     </dialog>
 

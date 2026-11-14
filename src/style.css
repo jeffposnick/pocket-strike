@@ -262,6 +262,15 @@ header {
   font-size: 16px;
 }
 
+.btns button[aria-pressed='true'] {
+  border-color: var(--cyan);
+  box-shadow: 0 0 10px rgba(56, 243, 255, 0.55);
+}
+
+.btns button[aria-pressed='false'] {
+  opacity: 0.55;
+}
+
 #throw {
   position: absolute;
   left: 50%;
@@ -449,6 +458,10 @@ header {
 #hint {
   display: flex;
   flex-direction: column;
+}
+
+#hint.swing .hand {
+  display: none;
 }
 
 #hint p {
@@ -706,6 +719,27 @@ dialog.overlay::backdrop {
 
 .toggle input:checked + span::after {
   transform: translateX(18px);
+}
+
+.toggle:has(+ .toggle:not([hidden])) {
+  margin-bottom: 10px;
+}
+
+.swingNote {
+  margin: -10px 0 16px;
+  font-size: 12px;
+  color: var(--amber);
+}
+
+.swingWarn {
+  margin: 14px 0 18px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 200, 74, 0.1);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--amber);
+  text-align: left;
 }
 
 .cta {

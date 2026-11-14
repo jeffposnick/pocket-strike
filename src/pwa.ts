@@ -65,6 +65,11 @@ function pill(text: string, action?: { label: string; run: () => void }, ms = 0)
   else show();
 }
 
+/** A plain notice in the same toast, for other parts of the game. */
+export function toast(text: string, ms: number): void {
+  pill(text, undefined, ms);
+}
+
 /** `close` doesn't bubble, so listen in the capture phase; a guarded dialog may reopen right after. */
 document.addEventListener(
   'close',

@@ -4,6 +4,7 @@ import type { Mode } from './lanes.ts';
 import { PERKS, POWER_PRICE, POWERS, REROLL_PRICE, STAGES } from './run.ts';
 import type { BallPoints, Perk, Run } from './run.ts';
 import type { FrameView } from './scoring.ts';
+import { toast } from './pwa.ts';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -36,6 +37,9 @@ function guardDialogs(): void {
     });
   }
 }
+
+const FLICK_HINT = '<b>Slide</b> to line up · <b>Flick up</b> to bowl<br />Curve the flick to <b>hook</b> the ball';
+const SWING_HINT = '<b>Hold</b> your thumb down · <b>Swing</b>, then <b>let go</b><br />Twist your wrist to <b>hook</b> the ball';
 
 export type BannerKind = 'strike' | 'spare' | 'split' | 'gutter' | 'plain';
 
@@ -206,6 +210,40 @@ export class Hud {
       apply();
     };
     apply();
+  }
+
+  /**
+   * Swing controls: the menu switch and the in-game button. Both only ask `onChange` for a new
+   * state; `setSwing` shows the state that actually took effect (permission can refuse it).
+   */
+  initSwing(supported: boolean, onChange: (on: boolean) => void): void {
+    $('swingToggle').hidden = !supported;
+    $('swingBtn').hidden = !supported;
+    const input = $<HTMLInputElement>('swing');
+    input.addEventListener('change', () => onChange(input.checked));
+    $('swingBtn').onclick = () => onChange($('swingBtn').getAttribute('aria-pressed') !== 'true');
+  }
+
+  /** Shows whether swing controls are on, with an optional note (why it couldn't be turned on). */
+  setSwing(on: boolean, note = ''): void {
+    $<HTMLInputElement>('swing').checked = on;
+    const btn = $('swingBtn');
+    btn.setAttribute('aria-pressed', String(on));
+    btn.title = on ? 'Swing to bowl is on' : 'Swing to bowl is off';
+    const el = $('swingNote');
+    el.textContent = note;
+    el.hidden = !note;
+    // Outside the menu the note would go unseen, so it becomes a toast.
+    if (note && !document.querySelector('dialog:modal')) toast(note, 5000);
+    const hint = $('hint');
+    hint.classList.toggle('swing', on);
+    hint.querySelector('p')!.innerHTML = on ? SWING_HINT : FLICK_HINT;
+  }
+
+  /** How to swing, and a word about grip. Shown the first time swing controls are switched on. */
+  showSwingIntro(): void {
+    openDialog('swingIntro');
+    $('swingOk').onclick = () => closeDialog('swingIntro');
   }
 
   onMenuButton(handler: () => void): void {

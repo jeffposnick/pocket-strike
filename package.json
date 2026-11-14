@@ -7,7 +7,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc",
-    "test": "node tools/sim/scoring.test.ts && node tools/sim/settle.ts",
+    "test": "node tools/sim/scoring.test.ts && node tools/sim/swing.test.ts && node tools/sim/settle.ts",
     "sim:pinfall": "node tools/sim/pinfall.ts",
     "sim:balance": "node tools/sim/run-balance.ts"
   },
