@@ -1,7 +1,8 @@
 // Unit tests for ten-pin scoring, Neon Run points and split detection.
 //
 //   node tools/sim/scoring.test.ts     (exits non-zero on failure)
-import { hitTier, Run } from '../../src/run.ts';
+import { DROPS, hitTier, MYSTERY_PRICE, POWERS, PRICES, Run } from '../../src/run.ts';
+import { seeded } from './helpers.ts';
 import { isSplit, provisionalTotal, scoreFrames } from '../../src/scoring.ts';
 
 let failures = 0;
@@ -52,6 +53,38 @@ const run = new Run(() => 0.5);
 eq(run.points(43, null, false, 0, 3), { chips: 116, mult: 1, total: 116 }, '43 pins + 3 specials');
 eq(run.points(47, 'nice', false, 0, 5), { chips: 144, mult: 1.5, total: 216 }, 'Nice Hit adds +0.5');
 eq(run.points(8, null, true, 0, 0), { chips: 16, mult: 2, total: 32 }, 'spare adds +1');
+
+// Power-up scoring.
+eq(run.points(50, 'big', false, 1, 0, ['double']), { chips: 100, mult: 4, total: 400 }, 'Double Down doubles the mult');
+eq(run.points(10, null, false, 0, 1, ['midas']), { chips: 90, mult: 1, total: 90 }, 'Midas Ball triples the chips');
+
+// Special pins only drop common power-ups; the shop sells the rarer ones.
+const r = new Run(seeded(3));
+const dropped = new Set<string>();
+for (let i = 0; i < 200; i++) for (const k of r.rollSpecials(55).values()) dropped.add(k);
+eq([...dropped].every((k) => k === 'gold' || DROPS.includes(k as never)), true, 'pins drop only gold and common power-ups');
+eq(DROPS.every((k) => dropped.has(k)), true, 'every common power-up can drop');
+let sawLegendary = false;
+let shelvesOk = true;
+for (let i = 0; i < 200; i++) {
+  const shelf = r.offerShop();
+  const ids = shelf.map((o) => o.power);
+  const [a, b, c, box] = shelf;
+  if (shelf.length !== 4 || new Set(ids.slice(0, 3)).size !== 3) shelvesOk = false;
+  for (const o of [a, b, c]) if (o.price !== PRICES[POWERS[o.power].rarity]) shelvesOk = false;
+  if (POWERS[c.power].rarity === 'common' || !box.mystery || box.price !== MYSTERY_PRICE) shelvesOk = false;
+  if (POWERS[c.power].rarity === 'legendary') sawLegendary = true;
+}
+eq(shelvesOk, true, 'shelf: three different power-ups priced by rarity, the third never common, then a mystery box');
+eq(sawLegendary, true, 'legendaries show up in the shop');
+const buyer = new Run(seeded(4));
+buyer.coins = 6;
+eq(buyer.buy({ power: 'quake', price: 8 }), false, "can't buy what you can't afford");
+eq(buyer.buy({ power: 'laser', price: 5 }), true, 'buying takes the coins');
+eq([buyer.coins, buyer.inventory], [1, ['laser']], 'and fills a slot');
+buyer.coins = 20;
+buyer.inventory.push('fire');
+eq(buyer.buy({ power: 'bomb', price: 3 }), false, "can't buy with every slot full");
 
 if (failures) {
   console.log(`${failures} scoring check(s) failed`);

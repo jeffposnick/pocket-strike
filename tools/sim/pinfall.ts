@@ -3,6 +3,7 @@
 //
 //   node tools/sim/pinfall.ts [--trials 30]
 import { CLASSIC_RACK, MEGA_RACK } from '../../src/constants.ts';
+import { SIM_POWERS } from '../../src/sim.ts';
 import { flag, fmt, repeat, roll } from './helpers.ts';
 
 const N = flag('trials', 30);
@@ -24,8 +25,8 @@ console.log(
 );
 
 console.log(`\nPower-ups on a bad line (Classic from x=-70, Mega Rack from x=-150):`);
-for (const p of ['fire', 'bomb', 'chain', 'mega', 'homing'] as const) {
+for (const p of SIM_POWERS) {
   const c = repeat(N, () => roll(CLASSIC_RACK, -70, { powers: { [p]: true } }));
   const m = repeat(Math.ceil(N / 2), () => roll(MEGA_RACK, -150, { powers: { [p]: true } }));
-  console.log(`  ${p.padEnd(7)} classic ${fmt(c).padEnd(22)} mega ${fmt(m)}`);
+  console.log(`  ${p.padEnd(9)} classic ${fmt(c).padEnd(22)} mega ${fmt(m)}`);
 }

@@ -6,10 +6,10 @@
 // The bowler model: aim at the Mega Rack's best line with Gaussian error
 // (sigma = skill), shoot spares at the centroid of what's left, arm any
 // power-up on the first ball of a frame, pick perks at random and spend coins
-// on power-ups. Real players choose perks on purpose, so they do a bit better.
+// on the priciest power-ups the shop offers. Real players choose perks on purpose, so they do a bit better.
 import { MEGA_RACK } from '../../src/constants.ts';
-import { hitTier, POWER_PRICE, Run, STAGES } from '../../src/run.ts';
-import { NO_POWERS, Sim } from '../../src/sim.ts';
+import { hitTier, Run, STAGES } from '../../src/run.ts';
+import { powersFor, Sim } from '../../src/sim.ts';
 import { flag, gaussian, STEP } from './helpers.ts';
 
 const RUNS = flag('runs', 30);
@@ -19,9 +19,8 @@ function ball(sim: Sim, run: Run, sigma: number, before: number) {
   const standing = sim.standing();
   if (run.inventory.length && before === sim.rackSize) run.armed.add(0);
   const powers = run.consumeArmed();
-  const has = (p: string) => powers.includes(p as never);
-  sim.powers = { ...NO_POWERS, fire: has('fire'), bomb: has('bomb'), chain: has('chain'), mega: has('mega'), homing: has('homing') };
-  sim.bumpers = has('rails') || (run.has('safety') > 0 && before < sim.rackSize);
+  sim.powers = powersFor(powers);
+  sim.bumpers = powers.includes('rails') || (run.has('safety') > 0 && before < sim.rackSize);
   const line = MEGA_RACK.homingLine ?? 80;
   let x: number;
   if (before === sim.rackSize) {
@@ -48,7 +47,9 @@ function ball(sim: Sim, run: Run, sigma: number, before: number) {
     }
     sim.events = [];
   }
-  return { knocked: before - sim.standing().length, specials };
+  const knocked = before - sim.standing().length;
+  if (powers.includes('midas')) run.coins += Math.floor(knocked / 5);
+  return { knocked, specials, powers };
 }
 
 /** Returns the number of stages cleared (STAGES.length = won). */
@@ -66,12 +67,15 @@ function playRun(sigma: number): number {
       const a = ball(sim, run, sigma, R);
       const tier = hitTier(a.knocked, R, true);
       streak = tier === 'big' || tier === 'clear' ? streak + 1 : 0;
-      run.addPoints(run.points(a.knocked, tier, false, streak, a.specials).total);
-      if (a.knocked < R) {
+      run.addPoints(run.points(a.knocked, tier, false, streak, a.specials, a.powers).total);
+      // Second ball, plus one per Encore, while pins remain.
+      let extra = a.powers.includes('encore') ? 1 : 0;
+      for (let k = 0; k <= extra && sim.standing().length; k++) {
         sim.clearDeadwood();
         const before = sim.standing().length;
         const b = ball(sim, run, sigma, before);
-        run.addPoints(run.points(b.knocked, null, b.knocked === before, 0, b.specials).total);
+        if (b.powers.includes('encore')) extra++;
+        run.addPoints(run.points(b.knocked, null, b.knocked === before, 0, b.specials, b.powers).total);
       }
     }
     stageScores[run.stage].push(run.stageScore);
@@ -80,10 +84,7 @@ function playRun(sigma: number): number {
     for (const r of run.stageReward()) run.coins += r.coins;
     const offers = run.offerPerks();
     run.takePerk(offers[Math.floor(Math.random() * offers.length)].id);
-    while (run.coins >= POWER_PRICE && run.inventory.length < run.slots) {
-      run.coins -= POWER_PRICE;
-      run.inventory.push(run.randomPower());
-    }
+    for (const offer of run.offerShop().sort((x, y) => y.price - x.price)) run.buy(offer);
     run.nextStage();
   }
 }

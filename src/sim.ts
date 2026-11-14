@@ -20,9 +20,13 @@ import {
 
 export type PinState = 'standing' | 'down' | 'pit' | 'cleared';
 
-/** Power-ups a special pin can grant (and that can be armed for a throw). */
-export type PowerId = 'fire' | 'bomb' | 'chain' | 'mega' | 'homing' | 'rails';
-export type PinKind = 'normal' | 'gold' | PowerId;
+/** Power-ups a special pin can drop (they're also sold in the shop). */
+export type DropId = 'fire' | 'bomb' | 'chain' | 'mega' | 'homing' | 'rails' | 'magnet' | 'snowball' | 'ricochet';
+/** Rarer power-ups that only the shop sells. */
+export type ShopId = 'blackhole' | 'laser' | 'double' | 'encore' | 'quake' | 'midas';
+/** Anything that can sit in an inventory slot and be armed for a throw. */
+export type PowerId = DropId | ShopId;
+export type PinKind = 'normal' | 'gold' | DropId;
 
 /** Lasting changes to the physics, from roguelike perks and stage modifiers. */
 export interface SimMods {
@@ -33,16 +37,17 @@ export interface SimMods {
   fallMult: number;
 }
 
-/** Power-ups active for the current roll. */
-export interface ActivePowers {
-  fire: boolean;
-  bomb: boolean;
-  chain: boolean;
-  mega: boolean;
-  homing: boolean;
-}
+/** The power-ups that change the physics, active for the current roll. */
+export const SIM_POWERS = ['fire', 'bomb', 'chain', 'mega', 'homing', 'magnet', 'snowball', 'ricochet', 'blackhole', 'laser', 'quake'] as const;
+export type SimPower = (typeof SIM_POWERS)[number];
+export type ActivePowers = Record<SimPower, boolean>;
 
-export const NO_POWERS: ActivePowers = { fire: false, bomb: false, chain: false, mega: false, homing: false };
+export const NO_POWERS: ActivePowers = Object.fromEntries(SIM_POWERS.map((k) => [k, false])) as ActivePowers;
+
+/** Active powers for a set of armed power-ups. */
+export function powersFor(armed: readonly PowerId[]): ActivePowers {
+  return Object.fromEntries(SIM_POWERS.map((k) => [k, armed.includes(k)])) as ActivePowers;
+}
 export const DEFAULT_MODS: SimMods = { ballR: 1, ballMass: 1, hookMult: 1, fallMult: 1 };
 
 export interface Pin {
@@ -96,10 +101,23 @@ export type SimEvent =
   | { type: 'pit'; x: number; y: number }
   | { type: 'pinDown'; id: number; kind: PinKind; x: number; y: number }
   | { type: 'bomb'; x: number; y: number }
-  | { type: 'zap'; x1: number; y1: number; x2: number; y2: number };
+  | { type: 'zap'; x1: number; y1: number; x2: number; y2: number }
+  | { type: 'hole'; x: number; y: number }
+  | { type: 'laser'; x: number; width: number }
+  | { type: 'quake' }
+  | { type: 'ricochet'; x: number; y: number };
 
 const BOMB_RADIUS = 165;
 const MEGA_SCALE = 1.8;
+/** Snowball: each solid hit grows the ball by this much, up to the cap. */
+const SNOW_GROWTH = 1.1;
+const SNOW_MAX = 2.6;
+/** Black Hole: how long the vortex pulls, and its reach as a multiple of the bomb radius. */
+const HOLE_TIME = 0.9;
+const HOLE_REACH = 1.8;
+/** Earthquake: how long the deck shakes, and each standing pin's chance per second of toppling. */
+const QUAKE_TIME = 1.4;
+const QUAKE_RATE = 1.5;
 
 /** Δv a standing pin must take to go down; softer knocks just make it wobble. */
 export const TUNE = { fallDv: 220, downFriction: 2.2, pinE: 0.6, ballE: 0.55 };
@@ -150,6 +168,18 @@ export class Sim {
   powers: ActivePowers = { ...NO_POWERS };
   /** Where homing steers the ball. */
   homingX = 0;
+  /** Snowball growth so far this roll (1 = normal size). */
+  growth = 1;
+  /** An active Black Hole vortex. */
+  hole: { x: number; y: number; t: number } | null = null;
+  /** Seconds of Earthquake left. */
+  quakeT = 0;
+  /** Seconds before the Pin Laser fires. */
+  private laserT = -1;
+  /** Ricochet: bounces off the back of the deck left. */
+  private backBounces = 0;
+  private holeUsed = false;
+  private quakeUsed = false;
   private bombUsed = false;
   private zaps: { x: number; y: number; t: number }[] = [];
   private zapsLeft = 0;
@@ -250,18 +280,25 @@ export class Sim {
     });
   }
 
-  /** Current ball radius, after perks and Mega Ball. */
+  /** Current ball radius, after perks, Mega Ball and Snowball growth. */
   get ballR(): number {
-    return BALL_R * this.mods.ballR * (this.powers.mega ? (this.layout.megaScale ?? MEGA_SCALE) : 1);
+    return BALL_R * this.mods.ballR * (this.powers.mega ? (this.layout.megaScale ?? MEGA_SCALE) : 1) * this.growth;
   }
 
   private get ballMass(): number {
-    return BALL_MASS * this.mods.ballMass * (this.powers.mega ? 3 : 1) * (this.powers.fire ? 6 : 1);
+    return BALL_MASS * this.mods.ballMass * (this.powers.mega ? 3 : 1) * (this.powers.fire ? 6 : 1) * this.growth ** 2;
   }
 
   launch(speed: number, angle: number, spin: number): void {
     const b = this.ball;
     this.bombUsed = false;
+    this.holeUsed = false;
+    this.quakeUsed = false;
+    this.hole = null;
+    this.quakeT = 0;
+    this.growth = 1;
+    this.backBounces = this.powers.ricochet ? 2 : 0;
+    this.laserT = this.powers.laser ? 0.25 : -1;
     this.zaps = [];
     this.zapsLeft = this.layout.zaps ?? 3;
     b.vx = Math.sin(angle) * speed;
@@ -287,7 +324,7 @@ export class Sim {
     // Once the ball has been among the pins for a while, only the pins matter.
     const ballDone = !b.rolling || b.inPit || Math.hypot(b.vx, b.vy) < 15 || this.sinceContact > 2.5;
     if (!ballDone) return false;
-    if (this.zaps.length) return false;
+    if (this.zaps.length || this.hole || this.quakeT > 0 || this.laserT >= 0) return false;
     if (this.rollTime > 7 || this.sinceContact > 4.5 || (b.inPit && b.pitT > 2.2)) return true;
     return this.pins.every(
       (p) =>
@@ -316,7 +353,7 @@ export class Sim {
       const drag = Math.exp(-0.04 * h);
       b.vx *= drag;
       b.vy *= drag;
-      if (this.contact && !b.gutter) {
+      if (this.contact && !b.gutter && !this.powers.ricochet) {
         // A 16 lb ball doesn't bounce back off pins: soak up any rebound toward the bowler.
         if (b.vy > 0) b.vy *= Math.exp(-14 * h);
         const deck = Math.exp(-0.8 * h);
@@ -349,7 +386,27 @@ export class Sim {
       if (!b.gutter && (b.y <= DECK_Y || this.contact) && Math.abs(b.x) > WALL_X - R) {
         const s = Math.sign(b.x);
         b.x = s * (WALL_X - R);
-        b.vx = -s * Math.abs(b.vx) * 0.4;
+        // Ricochet: a lively bounce off the kickbacks, back into the rack.
+        b.vx = -s * Math.abs(b.vx) * (this.powers.ricochet ? 0.95 : 0.4);
+        if (this.powers.ricochet && Math.abs(b.vx) > 120) this.events.push({ type: 'ricochet', x: b.x, y: b.y });
+      }
+      if (this.backBounces > 0 && !b.gutter && b.y < PIT_Y + R && b.vy < 0) {
+        // Ricochet: off the back cushion and through the rack again, angled toward the busier side.
+        this.backBounces--;
+        b.y = PIT_Y + R;
+        const left = this.pins.filter((p) => p.state === 'standing');
+        const cx = left.length ? left.reduce((a, p) => a + p.x, 0) / left.length : 0;
+        const speed = Math.max(900, Math.hypot(b.vx, b.vy) * 0.85);
+        const dir = Math.atan2(cx - b.x, 420);
+        b.vx = Math.sin(dir) * speed;
+        b.vy = Math.cos(dir) * speed;
+        this.events.push({ type: 'ricochet', x: b.x, y: b.y });
+      }
+      if (b.vy > 0 && this.contact && b.y > DECK_Y + 200) {
+        // A ricochet heading back toward the bowler has done its work: let it roll to a stop.
+        const k = Math.exp(-4 * h);
+        b.vx *= k;
+        b.vy *= k;
       }
       if (b.y < PIT_Y - R * 0.4) {
         b.inPit = true;
@@ -436,6 +493,8 @@ export class Sim {
       }
     }
 
+    this.stepPowers(h);
+
     // ---- Collisions
     if (b.rolling && !b.gutter && !b.inPit) {
       const br = this.ballR;
@@ -514,6 +573,9 @@ export class Sim {
       if (this.powers.fire && dv > 20) this.ignite(p);
       this.afterHit(p, this.powers.fire ? dv * 3 : dv, dx / d, dy / d);
       if (this.powers.bomb && !this.bombUsed && dv > 20) this.explode(c.x, c.y);
+      if (this.powers.blackhole && !this.holeUsed && dv > 20) this.openHole(c.x, c.y);
+      if (this.powers.quake && !this.quakeUsed && dv > 20) this.startQuake();
+      if (this.powers.snowball && dv > 20) this.growth = Math.min(SNOW_MAX, this.growth * SNOW_GROWTH);
       return;
     }
   }
@@ -588,6 +650,129 @@ export class Sim {
     if (t < 0.15) return;
     p.burning = true;
     p.burnT = t;
+  }
+
+  /** Per-substep effects of the active power-ups. */
+  private stepPowers(h: number): void {
+    const b = this.ball;
+
+    // Magnet: pins that go down are drawn to the nearest pin still standing, and crash into it.
+    if (this.powers.magnet && this.contact) {
+      const reach = 130 * this.layout.pinScale;
+      for (const p of this.pins) {
+        if (p.state !== 'down' || p.restT > SLEEP_AFTER) continue;
+        let best: Pin | null = null;
+        let bestD = reach;
+        for (const q of this.pins) {
+          if (q.state !== 'standing') continue;
+          const d = Math.hypot(q.x - p.x, q.y - p.y);
+          if (d < bestD) {
+            bestD = d;
+            best = q;
+          }
+        }
+        if (!best) continue;
+        const pull = 1100 * (1 - bestD / reach) + 150;
+        p.vx += ((best.x - p.x) / (bestD || 1)) * pull * h;
+        p.vy += ((best.y - p.y) / (bestD || 1)) * pull * h;
+      }
+    }
+
+    // Pin Laser: a beam along the ball's line that topples every pin it crosses.
+    if (this.laserT >= 0) {
+      this.laserT -= h;
+      if (this.laserT < 0) {
+        const t = (b.y - HEAD_Y) / Math.max(1, -b.vy);
+        const x = b.x + b.vx * t;
+        const width = this.ballR * 2.6;
+        this.events.push({ type: 'laser', x, width });
+        // Each pin in the beam is blown sideways, out of the beam and into its neighbours.
+        for (const p of this.pins) {
+          if (p.state !== 'standing' || Math.abs(p.x - x) > width) continue;
+          const side = p.x >= x ? 1 : -1;
+          p.vx = side * 800;
+          p.vy = -120;
+          this.afterHit(p, 9999, side, 0);
+        }
+      }
+    }
+
+    // Black Hole: everything nearby is dragged toward the impact point and swirls around it.
+    if (this.hole) {
+      const o = this.hole;
+      o.t -= h;
+      const reach = this.bombRadius * HOLE_REACH;
+      const need = TUNE.fallDv * this.mods.fallMult * (this.layout.fallScale ?? 1);
+      for (const p of this.pins) {
+        if (p.state !== 'standing' && p.state !== 'down') continue;
+        const dx = o.x - p.x;
+        const dy = o.y - p.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d > reach || d < 8) continue;
+        const k = 1 - d / reach;
+        const pull = 2600 * k;
+        p.vx += ((dx / d) * pull - (dy / d) * pull * 0.6) * h;
+        p.vy += ((dy / d) * pull + (dx / d) * pull * 0.6) * h;
+        p.restT = 0;
+        if (p.state === 'down') p.av += 14 * k * h;
+        // Standing pins get torn off their spots, the nearer the likelier.
+        else if (this.rand() < 5 * k * h) {
+          p.vx = (dx / d) * 300;
+          p.vy = (dy / d) * 300;
+          this.afterHit(p, need * 2, dx / d, dy / d);
+        }
+      }
+      if (o.t <= 0) this.hole = null;
+    }
+
+    // Earthquake: the deck shakes and standing pins topple at random.
+    if (this.quakeT > 0) {
+      this.quakeT -= h;
+      const need = TUNE.fallDv * this.mods.fallMult * (this.layout.fallScale ?? 1);
+      for (const p of this.pins) {
+        if (p.state === 'standing') {
+          p.wobble = Math.min(1, p.wobble + h * 3);
+          if (this.rand() < QUAKE_RATE * h) {
+            const a = this.rand() * Math.PI * 2;
+            p.vx = Math.cos(a) * 160;
+            p.vy = Math.sin(a) * 160;
+            this.afterHit(p, need * 2, Math.cos(a), Math.sin(a));
+          }
+        } else if (p.state === 'down' && this.rand() < 4 * h) {
+          p.vx += (this.rand() - 0.5) * 120;
+          p.vy += (this.rand() - 0.5) * 120;
+          p.restT = 0;
+        }
+      }
+    }
+  }
+
+  private openHole(x: number, contactY: number): void {
+    this.holeUsed = true;
+    // The vortex opens in the middle of what's still standing, in line with the hit.
+    const up = this.pins.filter((p) => p.state === 'standing');
+    const y = up.length ? up.reduce((a, p) => a + p.y, 0) / up.length : contactY - 40;
+    this.hole = { x, y, t: HOLE_TIME };
+    this.events.push({ type: 'hole', x, y });
+    // The first pull is sharp enough to topple what's close.
+    const reach = this.bombRadius * HOLE_REACH;
+    for (const p of this.pins) {
+      if (p.state !== 'standing') continue;
+      const dx = x - p.x;
+      const dy = y - p.y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d > reach) continue;
+      const dv = 200 + 700 * (1 - d / reach);
+      p.vx = (dx / d) * dv;
+      p.vy = (dy / d) * dv;
+      this.afterHit(p, dv, dx / d, dy / d);
+    }
+  }
+
+  private startQuake(): void {
+    this.quakeUsed = true;
+    this.quakeT = QUAKE_TIME;
+    this.events.push({ type: 'quake' });
   }
 
   private explode(x: number, y: number): void {

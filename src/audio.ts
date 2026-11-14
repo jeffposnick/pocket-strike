@@ -296,6 +296,36 @@ export class Sfx {
     if (b) this.play(this.pick(b.zap), { gain: 0.55, rate: rnd(0.95, 1.1), pan: pan * 0.6, wet: 0.3 });
   }
 
+  /** Black Hole: the blast slowed right down into a deep, sucking rumble. */
+  vortex(pan = 0): void {
+    const b = this.bank;
+    if (!b) return;
+    this.play(b.boom, { gain: 0.9, rate: 0.55, pan: pan * 0.4, wet: 0.6 });
+    this.play(b.pad, { gain: 0.25, rate: 0.5, wet: 0.6 });
+  }
+
+  /** Pin Laser: a bright, rising zing. */
+  laser(pan = 0): void {
+    const b = this.bank;
+    if (!b) return;
+    this.play(b.zap[0], { gain: 0.6, rate: 1.6, pan: pan * 0.6, wet: 0.35 });
+    this.play(b.zap[1], { gain: 0.4, rate: 2.2, pan: pan * 0.6, wet: 0.35, when: 0.04 });
+  }
+
+  /** Earthquake: rolling thunder under the deck. */
+  quake(): void {
+    const b = this.bank;
+    if (!b) return;
+    for (let i = 0; i < 4; i++) this.play(this.pick(b.thud), { gain: 0.8, rate: rnd(0.5, 0.7), pan: rnd(-0.6, 0.6), wet: 0.4, when: i * 0.3 });
+    this.play(b.boom, { gain: 0.5, rate: 0.4, wet: 0.5 });
+  }
+
+  /** Ricochet: the ball off a wall or the back cushion. */
+  ricochet(pan = 0): void {
+    const b = this.bank;
+    if (b) this.play(this.pick(b.panel), { gain: 0.7, rate: rnd(0.6, 0.75), pan: pan * 0.8, wet: 0.25 });
+  }
+
   /** Sparkle for collecting a special pin. */
   collect(pan = 0): void {
     [NOTE.E6, NOTE.B6, NOTE.E7].forEach((f, i) =>

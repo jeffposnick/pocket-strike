@@ -1,22 +1,48 @@
-import type { PinKind, PowerId, SimMods } from './sim.ts';
+import type { DropId, PinKind, PowerId, SimMods } from './sim.ts';
+
+/** Common power-ups drop from special pins; rare and legendary ones are only sold in the shop. */
+export type Rarity = 'common' | 'rare' | 'legendary';
 
 export interface PowerInfo {
   name: string;
   icon: string;
   color: string;
   desc: string;
+  rarity?: Rarity;
 }
 
-export const POWERS: Record<PowerId, PowerInfo> = {
-  fire: { name: 'Fireball', icon: '🔥', color: '#ff7a2b', desc: 'Plows through the rack and sets pins ablaze. Burning pins topple anything they touch.' },
-  bomb: { name: 'Bomb', icon: '💣', color: '#ff4d6d', desc: 'Explodes on first contact and blasts every pin nearby.' },
-  chain: { name: 'Chain Lightning', icon: '⚡', color: '#38f3ff', desc: 'Each falling pin zaps the nearest standing pin (up to 3 zaps).' },
-  mega: { name: 'Mega Ball', icon: '🌕', color: '#ffe066', desc: 'The ball grows huge and heavy for one throw.' },
-  homing: { name: 'Homing', icon: '🎯', color: '#b47cff', desc: 'Steers the ball into the pocket, or toward the pins left standing.' },
-  rails: { name: 'Guard Rails', icon: '🛡️', color: '#7dff9b', desc: 'Bumpers for one throw. No gutter ball.' },
+export const POWERS: Record<PowerId, PowerInfo & { rarity: Rarity }> = {
+  fire: { name: 'Fireball', icon: '🔥', color: '#ff7a2b', rarity: 'common', desc: 'Plows through the rack and sets pins ablaze. Burning pins topple anything they touch.' },
+  bomb: { name: 'Bomb', icon: '💣', color: '#ff4d6d', rarity: 'common', desc: 'Explodes on first contact and blasts every pin nearby.' },
+  chain: { name: 'Chain Lightning', icon: '⚡', color: '#38f3ff', rarity: 'common', desc: 'Each falling pin zaps the nearest standing pin.' },
+  mega: { name: 'Mega Ball', icon: '🌕', color: '#ffe066', rarity: 'common', desc: 'The ball grows huge and heavy for one throw.' },
+  homing: { name: 'Homing', icon: '🎯', color: '#b47cff', rarity: 'common', desc: 'Steers the ball into the pocket, or toward the pins left standing.' },
+  rails: { name: 'Guard Rails', icon: '🛡️', color: '#7dff9b', rarity: 'common', desc: 'Bumpers for one throw. No gutter ball.' },
+  magnet: { name: 'Magnet', icon: '🧲', color: '#ff5ec4', rarity: 'common', desc: 'Pins near the ball slide into its path as it reaches the rack.' },
+  snowball: { name: 'Snowball', icon: '☃️', color: '#cfefff', rarity: 'common', desc: 'The ball grows bigger and heavier with every pin it hits.' },
+  ricochet: { name: 'Ricochet', icon: '🔁', color: '#5cffd8', rarity: 'common', desc: "The ball keeps its speed, caroms off the walls and bounces back through the rack twice." },
+  blackhole: { name: 'Black Hole', icon: '🕳️', color: '#9b6bff', rarity: 'rare', desc: 'At first contact a vortex opens and drags every pin nearby into a spinning pile.' },
+  laser: { name: 'Pin Laser', icon: '🔦', color: '#ff3b3b', rarity: 'rare', desc: "Fires a beam down the ball's line that topples every pin it crosses." },
+  double: { name: 'Double Down', icon: '✖️', color: '#ffd23f', rarity: 'rare', desc: "This ball's mult is doubled." },
+  encore: { name: 'Encore', icon: '🔂', color: '#7df3ff', rarity: 'rare', desc: 'One extra ball this frame.' },
+  quake: { name: 'Earthquake', icon: '🌋', color: '#ff8a3d', rarity: 'legendary', desc: 'At first contact the deck shakes for over a second. Most standing pins go down.' },
+  midas: { name: 'Midas Ball', icon: '👑', color: '#ffcf33', rarity: 'legendary', desc: 'Every pin it knocks down is gold: triple chips, and +1 coin for every 5 pins.' },
 };
 
+/** The power-ups special pins can drop. */
+export const DROPS = (Object.keys(POWERS) as PowerId[]).filter((k): k is DropId => POWERS[k].rarity === 'common');
+
+export const PRICES: Record<Rarity, number> = { common: 3, rare: 5, legendary: 8 };
+export const MYSTERY_PRICE = 2;
+
 export const GOLD: PowerInfo = { name: 'Gold Pin', icon: '🪙', color: '#ffc84a', desc: 'Knock it down for a coin.' };
+
+/** Something on the shop shelf. `mystery` hides which power-up it is until it's bought. */
+export interface ShopOffer {
+  power: PowerId;
+  price: number;
+  mystery?: boolean;
+}
 
 export function pinInfo(kind: PinKind): PowerInfo | null {
   if (kind === 'normal') return null;
@@ -87,7 +113,6 @@ export const STAGES: Stage[] = [
   { name: 'Iron Pins', target: 1330, boss: 'Iron pins: 35% harder to topple', mods: { fallMult: 1.35 } },
 ];
 
-export const POWER_PRICE = 3;
 export const REROLL_PRICE = 2;
 
 export interface BallPoints {
@@ -168,6 +193,9 @@ export class Run {
       ['mega', 1],
       ['homing', 1],
       ['rails', 0.8],
+      ['magnet', 0.9],
+      ['snowball', 0.9],
+      ['ricochet', 0.8],
     ];
     const total = weights.reduce((a, [, w]) => a + w, 0);
     const out = new Map<number, PinKind>();
@@ -209,15 +237,19 @@ export class Run {
     return used;
   }
 
-  /** `streak` counts consecutive Big Hits / Mega Strikes, including this ball. */
-  points(knocked: number, tier: HitTier, spare: boolean, streak: number, specials: number): BallPoints {
-    const chips = knocked * (2 + this.has('collector')) + specials * 10;
+  /**
+   * `streak` counts consecutive Big Hits / Mega Strikes, including this ball. `used` is what was armed
+   * for it: Midas Ball triples the chips and Double Down doubles the mult.
+   */
+  points(knocked: number, tier: HitTier, spare: boolean, streak: number, specials: number, used: readonly PowerId[] = []): BallPoints {
+    const chips = (knocked * (2 + this.has('collector')) + specials * 10) * (used.includes('midas') ? 3 : 1);
     let mult = 1;
     if (tier === 'clear') mult += 3 + this.has('striker');
     if (tier === 'big') mult += 1 + this.has('striker');
     if (tier === 'nice') mult += 0.5;
     if (tier === 'clear' || tier === 'big') mult += 0.5 * this.has('hothand') * Math.max(0, streak - 1);
     if (spare) mult += 1 + this.has('spares');
+    if (used.includes('double')) mult *= 2;
     const total = Math.round(chips * mult);
     return { chips, mult, total };
   }
@@ -270,17 +302,46 @@ export class Run {
     return picks;
   }
 
-  offerPowers(): PowerId[] {
-    const all = Object.keys(POWERS) as PowerId[];
-    const a = all[Math.floor(this.rand() * all.length)];
-    let b = a;
-    while (b === a) b = all[Math.floor(this.rand() * all.length)];
-    return [a, b];
+  /**
+   * The shop shelf: two picks that are each rare 40% of the time, a third that is legendary 30% of
+   * the time (else rare), and a mystery box. Never the same power-up twice.
+   */
+  offerShop(): ShopOffer[] {
+    const taken = new Set<PowerId>();
+    const pick = (rarity: Rarity): PowerId => {
+      const pool = (Object.keys(POWERS) as PowerId[]).filter((k) => POWERS[k].rarity === rarity && !taken.has(k));
+      const p = pool[Math.floor(this.rand() * pool.length)];
+      taken.add(p);
+      return p;
+    };
+    const offer = (rarity: Rarity): ShopOffer => ({ power: pick(rarity), price: PRICES[rarity] });
+    return [
+      offer(this.rand() < 0.4 ? 'rare' : 'common'),
+      offer(this.rand() < 0.4 ? 'rare' : 'common'),
+      offer(this.rand() < 0.3 ? 'legendary' : 'rare'),
+      { power: this.mysteryPower(), price: MYSTERY_PRICE, mystery: true },
+    ];
   }
 
+  /** What a mystery box holds: common 65%, rare 28%, legendary 7%. */
+  mysteryPower(): PowerId {
+    const r = this.rand();
+    const rarity: Rarity = r < 0.07 ? 'legendary' : r < 0.35 ? 'rare' : 'common';
+    const pool = (Object.keys(POWERS) as PowerId[]).filter((k) => POWERS[k].rarity === rarity);
+    return pool[Math.floor(this.rand() * pool.length)];
+  }
+
+  /** A random common power-up (Power Surge). */
   randomPower(): PowerId {
-    const all = Object.keys(POWERS) as PowerId[];
-    return all[Math.floor(this.rand() * all.length)];
+    return DROPS[Math.floor(this.rand() * DROPS.length)];
+  }
+
+  /** Buys a shop offer if there's room and money. */
+  buy(offer: ShopOffer): boolean {
+    if (this.coins < offer.price || this.inventory.length >= this.slots) return false;
+    this.coins -= offer.price;
+    this.inventory.push(offer.power);
+    return true;
   }
 
   takePerk(id: PerkId): void {

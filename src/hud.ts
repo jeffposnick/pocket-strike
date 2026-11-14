@@ -1,7 +1,7 @@
 import { BALL_STYLES } from './art.ts';
 import type { BallStyle } from './art.ts';
 import type { Mode } from './lanes.ts';
-import { PERKS, POWER_PRICE, POWERS, REROLL_PRICE, STAGES } from './run.ts';
+import { PERKS, POWERS, REROLL_PRICE, STAGES } from './run.ts';
 import type { BallPoints, Perk, Run } from './run.ts';
 import type { FrameView } from './scoring.ts';
 import { toast } from './pwa.ts';
@@ -427,7 +427,7 @@ Hud.prototype.showShop = function (
 
   let offers: Perk[] = run.offerPerks();
   let picked = false;
-  const powerOffers = run.offerPowers().map((p) => ({ p, sold: false }));
+  const powerOffers = run.offerShop().map((o) => ({ ...o, sold: false, revealed: false }));
 
   const render = () => {
     $('shopCoins').textContent = `🪙 ${run.coins}`;
@@ -462,18 +462,28 @@ Hud.prototype.showShop = function (
     const shelf = $('shelf');
     shelf.innerHTML = '';
     for (const offer of powerOffers) {
-      const info = POWERS[offer.p];
+      const info = POWERS[offer.power];
+      const hidden = offer.mystery && !offer.revealed;
       const b = document.createElement('button');
-      b.className = 'power';
-      b.style.setProperty('--c', info.color);
+      b.className = `power ${hidden ? 'mystery' : info.rarity}`;
+      if (!hidden) b.style.setProperty('--c', info.color);
       const full = run.inventory.length >= run.slots;
-      b.innerHTML = `<span class="ico">${info.icon}</span><span><b>${info.name}</b><small>${info.desc}</small></span><span class="price">${offer.sold ? 'Sold' : full ? 'Full' : `🪙 ${POWER_PRICE}`}</span>`;
-      b.disabled = offer.sold || full || run.coins < POWER_PRICE;
+      const badge = hidden ? 'Mystery' : info.rarity === 'common' ? '' : info.rarity === 'rare' ? 'Rare' : 'Legendary';
+      const name = hidden ? 'Mystery Box' : info.name;
+      const desc = hidden
+        ? 'A random power-up. Usually common, sometimes rare, now and then legendary.'
+        : offer.mystery
+          ? `From the box: ${info.desc}`
+          : info.desc;
+      b.innerHTML =
+        `<span class="ico">${hidden ? '🎁' : info.icon}</span>` +
+        `<span><b>${name}${badge ? ` <em>${badge}</em>` : ''}</b><small>${desc}</small></span>` +
+        `<span class="price">${offer.sold ? 'Sold' : full ? 'Full' : `🪙 ${offer.price}`}</span>`;
+      b.disabled = offer.sold || full || run.coins < offer.price;
       b.onclick = () => {
-        if (offer.sold || run.coins < POWER_PRICE || run.inventory.length >= run.slots) return;
-        run.coins -= POWER_PRICE;
-        run.inventory.push(offer.p);
+        if (offer.sold || !run.buy(offer)) return;
         offer.sold = true;
+        offer.revealed = true;
         onBuy();
         render();
       };

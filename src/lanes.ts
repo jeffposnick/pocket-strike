@@ -32,9 +32,9 @@ import type { Hud } from './hud.ts';
 import { flickThrow } from './flick.ts';
 import { Gamepads, moveFocus, pressFocused, topDialog } from './gamepad.ts';
 import { Motion, motionNeedsTap, motionSupported } from './motion.ts';
-import { hitTier, Run, pinInfo, POWERS } from './run.ts';
+import { DROPS, hitTier, Run, pinInfo, POWERS } from './run.ts';
 import { isSplit, provisionalTotal, scoreFrames } from './scoring.ts';
-import { DEFAULT_MODS, NO_POWERS, Sim } from './sim.ts';
+import { DEFAULT_MODS, NO_POWERS, powersFor, Sim } from './sim.ts';
 import type { PinKind, PowerId } from './sim.ts';
 
 export type Mode = 'classic' | 'run';
@@ -161,6 +161,9 @@ export class Lanes extends ex.Scene {
   private fingerFade = 0;
   private best = 0;
   private zapBolts: { pts: { x: number; y: number }[]; t: number }[] = [];
+  private laserBeams: { x: number; width: number; fromY: number; t: number }[] = [];
+  /** Encore: extra balls granted in the current frame. */
+  private bonusBalls = 0;
   private rings: { x: number; y: number; t: number }[] = [];
   private flames: Spark[] = [];
 
@@ -177,7 +180,7 @@ export class Lanes extends ex.Scene {
     this.add(this.spotsMega);
     this.spotsMega.graphics.isVisible = false;
     this.ensurePinActors();
-    for (const kind of ['gold', 'fire', 'bomb', 'chain', 'mega', 'homing', 'rails'] as PinKind[]) {
+    for (const kind of ['gold', ...DROPS] as PinKind[]) {
       const info = pinInfo(kind)!;
       this.specialGfx.set(kind, { standing: makeStandingPin(info.color), fallen: makeFallenPin(info.color) });
     }
@@ -641,8 +644,9 @@ export class Lanes extends ex.Scene {
     this.ballPowers = this.run ? this.run.consumeArmed() : [];
     this.ballSpecials = 0;
     const has = (p: PowerId) => this.ballPowers.includes(p);
-    this.sim.powers = { fire: has('fire'), bomb: has('bomb'), chain: has('chain'), mega: has('mega'), homing: has('homing') };
+    this.sim.powers = powersFor(this.ballPowers);
     if (has('rails')) this.sim.bumpers = true;
+    if (has('encore')) this.bonusBalls++;
     const standing = this.sim.standing();
     if (standing.length >= this.sim.rackSize - 1 || standing.length === 0) {
       const line = this.sim.layout.homingLine ?? 24;
@@ -726,12 +730,13 @@ export class Lanes extends ex.Scene {
     // Advance the frame.
     this.resetAfter = false;
     if (this.run) {
-      if ((this.ballInFrame === 0 && knocked === rack) || this.ballInFrame === 1) {
+      // A frame is two balls, plus one per Encore, and ends early once the rack is clear.
+      if (standing.length === 0 || this.ballInFrame >= 1 + this.bonusBalls) {
         this.nextFrame();
         this.run.frameInStage = this.frame;
         if (this.frame >= this.run.framesPerStage) this.stageOver = true;
       } else {
-        this.ballInFrame = 1;
+        this.ballInFrame++;
       }
     } else if (this.frame < 9) {
       if (this.ballInFrame === 0 && knocked === 10) this.nextFrame();
@@ -767,8 +772,16 @@ export class Lanes extends ex.Scene {
     const spare = !fullRack && left === 0;
     if (tier === 'clear' || tier === 'big') this.streak++;
     else if (fullRack) this.streak = 0;
-    const pts = run.points(knocked, tier, spare, this.streak, this.ballSpecials);
+    const pts = run.points(knocked, tier, spare, this.streak, this.ballSpecials, this.ballPowers);
     run.addPoints(pts.total);
+    if (this.ballPowers.includes('midas')) {
+      const coins = Math.floor(knocked / 5);
+      if (coins) {
+        run.coins += coins;
+        const page = this.engine.screen.worldToPageCoordinates(ex.vec(0, PIN_HEAD_Y - 120));
+        this.hud.floatText(`👑 +${coins} 🪙`, page.x, page.y, POWERS.midas.color);
+      }
+    }
     if (tier === 'clear') run.strikes++;
     if (tier === 'clear' || tier === 'big') run.bigHits++;
     if (spare) run.spares++;
@@ -811,6 +824,7 @@ export class Lanes extends ex.Scene {
 
   private nextFrame(): void {
     this.frame++;
+    this.bonusBalls = 0;
     this.ballInFrame = 0;
     this.resetAfter = true;
   }
@@ -951,6 +965,30 @@ export class Lanes extends ex.Scene {
           this.spawnSparks(e.x, e.y, 1800, false);
           this.spawnSparks(e.x, e.y, 1200, true);
           buzz([60, 30, 80]);
+          break;
+        case 'hole':
+          this.shake = Math.max(this.shake, 14);
+          this.hitStop = Math.max(this.hitStop, 0.06);
+          this.hud.flash('rgba(155,107,255,0.45)');
+          this.sfx.vortex(this.panAt(e.x));
+          buzz([80, 40, 120]);
+          break;
+        case 'laser':
+          this.laserBeams.push({ x: e.x, width: e.width, fromY: this.sim.ball.y, t: 0 });
+          this.hud.flash('rgba(255,59,59,0.35)');
+          this.sfx.laser(this.panAt(e.x));
+          this.shake = Math.max(this.shake, 8);
+          buzz(40);
+          break;
+        case 'quake':
+          this.hud.flash('rgba(255,138,61,0.4)');
+          this.sfx.quake();
+          buzz([100, 50, 100, 50, 150]);
+          break;
+        case 'ricochet':
+          this.sfx.ricochet(this.panAt(e.x));
+          this.spawnSparks(e.x, e.y, 500, false);
+          this.shake = Math.max(this.shake, 5);
           break;
         case 'zap': {
           const pts = [{ x: e.x1, y: e.y1 }];
@@ -1122,6 +1160,10 @@ export class Lanes extends ex.Scene {
     this.flames = this.flames.filter((f) => f.life < f.max);
     for (const z of this.zapBolts) z.t += dt;
     this.zapBolts = this.zapBolts.filter((z) => z.t < 0.35);
+    for (const l of this.laserBeams) l.t += dt;
+    this.laserBeams = this.laserBeams.filter((l) => l.t < 0.6);
+    // The deck keeps shaking for as long as the quake lasts.
+    if (this.sim.quakeT > 0) this.shake = Math.max(this.shake, 9);
     for (const r of this.rings) r.t += dt;
     this.rings = this.rings.filter((r) => r.t < 0.5);
     for (const c of this.confetti) {
@@ -1246,10 +1288,62 @@ export class Lanes extends ex.Scene {
     this.ballShadow.graphics.isVisible = this.phase !== 'sweep';
   }
 
+  /** Effects for the newer power-ups, drawn in world space. */
+  private drawPowerFx(ctx: ex.ExcaliburGraphicsContext): void {
+    const now = performance.now() / 1000;
+    const b = this.sim.ball;
+    const rolling = this.phase === 'roll' && b.rolling && !b.inPit;
+
+    // Magnet: a field pulsing out from the ball.
+    if (rolling && this.sim.powers.magnet) {
+      for (let i = 0; i < 3; i++) {
+        const k = (now * 1.6 + i / 3) % 1;
+        ctx.drawCircle(ex.vec(b.x, b.y), this.sim.ballR + 20 + k * 80, ex.Color.Transparent, ex.Color.fromRGB(255, 94, 196, 0.5 * (1 - k)), 2);
+      }
+    }
+
+    // Midas Ball: a golden halo.
+    if (rolling && this.ballPowers.includes('midas')) {
+      const pulse = 1 + 0.08 * Math.sin(now * 8);
+      ctx.drawCircle(ex.vec(b.x, b.y), this.sim.ballR * 1.45 * pulse, ex.Color.fromRGB(255, 207, 51, 0.18), ex.Color.fromRGB(255, 230, 140, 0.8), 3);
+    }
+
+    // Black Hole: a dark core with arms spiralling in.
+    const h = this.sim.hole;
+    if (h) {
+      const fade = Math.min(1, h.t / 0.25);
+      const reach = this.sim.bombRadius * 1.8;
+      ctx.drawCircle(ex.vec(h.x, h.y), reach * 0.55, ex.Color.fromRGB(40, 10, 80, 0.25 * fade));
+      for (let arm = 0; arm < 6; arm++) {
+        let prev: ex.Vector | null = null;
+        for (let j = 0; j <= 10; j++) {
+          const r = 22 + (reach * 0.7 * j) / 10;
+          const a = now * 5 + (arm * Math.PI) / 3 + j * 0.32;
+          const p = ex.vec(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r);
+          if (prev) ctx.drawLine(prev, p, ex.Color.fromRGB(155, 107, 255, 0.55 * fade * (1 - j / 11)), 4);
+          prev = p;
+        }
+      }
+      ctx.drawCircle(ex.vec(h.x, h.y), 26, ex.Color.fromHex('#05020f'), ex.Color.fromRGB(200, 170, 255, fade), 3);
+    }
+
+    // Pin Laser: a beam from the ball to the pit along its line, fading out.
+    for (const l of this.laserBeams) {
+      const a = 1 - l.t / 0.6;
+      const top = PIT_Y - 60;
+      const len = l.fromY - top;
+      ctx.drawRectangle(ex.vec(l.x - l.width, top), l.width * 2, len, ex.Color.fromRGB(255, 59, 59, 0.22 * a));
+      ctx.drawRectangle(ex.vec(l.x - l.width * 0.25, top), l.width * 0.5, len, ex.Color.fromRGB(255, 220, 220, 0.85 * a));
+    }
+  }
+
   override onPostDraw(ctx: ex.ExcaliburGraphicsContext): void {
-    // Post-draw runs in screen space: apply the camera (zoom and shake) by hand.
+    // Post-draw runs in screen space: apply the camera (zoom and shake) by hand. The screen centre
+    // comes from the resolution: the engine's halfDrawWidth/Height are already divided by the zoom,
+    // which put every effect off-centre in Neon Run (zoom 0.88).
     ctx.save();
-    ctx.translate(this.engine?.halfDrawWidth ?? 270, this.engine?.halfDrawHeight ?? 480);
+    const res = this.engine?.screen.resolution;
+    ctx.translate((res?.width ?? 540) / 2, (res?.height ?? 960) / 2);
     ctx.scale(this.zoom, this.zoom);
     ctx.translate(-this.camera.pos.x, -this.camera.pos.y);
 
@@ -1322,6 +1416,8 @@ export class Lanes extends ex.Scene {
       c.a = 0.9 * (1 - f.life / f.max);
       ctx.drawCircle(ex.vec(f.x, f.y), f.size * (1 - f.life / f.max * 0.5), c);
     }
+
+    this.drawPowerFx(ctx);
 
     for (const z of this.zapBolts) {
       const a = 1 - z.t / 0.35;

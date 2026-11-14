@@ -59,7 +59,32 @@ from 150 to 220 and friction from 1.5 to 2.2 fixed that.
 
 - **Plain shots:** the best line is about ±80 px from centre (~46–48 pins), dead centre gets ~42,
   and edges ~26–30. Full clears are very rare without a power-up.
-- **Power-ups:** each one lifts a bad edge shot to 44–50 pins.
+- **Power-ups** (average pins down of 55, from `npm run sim:pinfall`'s method: a bad edge shot from
+  x = −150 and the best line x = 80; no power-up gets about 26 and 46):
+
+  | Power-up | Rarity | Edge shot | Best line |
+  | --- | --- | --- | --- |
+  | Fireball | common | 43 | 54.6 (75% clear) |
+  | Bomb | common | 49.5 | 52 |
+  | Chain Lightning | common | 43 | 52.4 |
+  | Mega Ball | common | 43 | 52.6 |
+  | Homing | common | 48 | 47 |
+  | Magnet | common | 43.6 | 53.5 (31% clear) |
+  | Snowball | common | 27 | 50.4 |
+  | Ricochet | common | 36 | 48.3 |
+  | Pin Laser | rare | 42 | 53.1 |
+  | Black Hole | rare | 49 | 54 |
+  | Earthquake | legendary | 52 | 54.3 (38% clear) |
+
+  Snowball and Ricochet are deliberately line-dependent: they reward accuracy rather than rescue a
+  bad shot. Double Down, Encore and Midas Ball don't touch the physics.
+  - The first Magnet pulled standing pins into the ball's path; they bunched up and fell *less*
+    (41 on the best line). Pulling the falling pins into the standing ones works, but its first
+    tuning cleared the rack 94% of the time, so it was turned down.
+  - The first Pin Laser knocked its column straight back, which removed the pins the ball would have
+    cascaded through (19 from the edge, worse than nothing). Blowing them sideways fixed that.
+  - The first Black Hole opened at the front pin, pulling the rack forward and out of the ball's
+    path. It now opens in the middle of the standing pins.
 - **History:**
   - The first, tightly packed version (spacing 31, lane 300 wide) cascaded so much that aim barely mattered.
   - Bomb and Fire then cleared all 55 pins over 90% of the time, so power strengths became per-layout settings.

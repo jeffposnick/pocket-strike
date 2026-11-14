@@ -34,7 +34,16 @@ The HUD shows `chips × mult = +total` under each result banner.
   on the deck and on the rack diagram. Knocking one down banks it (`Run.collect`).
 - **Gold** gives +1 coin (+2 with Magpie). Any other special adds that power-up to an inventory slot
   (2 slots, +1 per Deep Pockets); with full slots it pays a coin instead.
-- **Arming:** tap a slot to arm it for the next throw. Several can be armed at once.
+- **Arming:** tap a slot (or press L / R / ZL / ZR on a controller) to arm it for the next throw.
+  Several can be armed at once, and they stack.
+
+### Power-ups
+
+Power-ups come in three rarities (`POWERS[id].rarity` in `src/run.ts`). Only **common** ones drop from
+special pins; **rare** and **legendary** ones are only sold in the shop. The physics for each is in
+`Sim.stepPowers` and friends (`src/sim.ts`); scoring ones are applied in `Run.points`.
+
+**Common** (drop from pins, 3 coins in the shop)
 
 | Power-up | Effect |
 | --- | --- |
@@ -44,6 +53,25 @@ The HUD shows `chips × mult = +total` under each result banner.
 | 🌕 Mega Ball | Ball radius × the layout's mega scale, mass ×3. |
 | 🎯 Homing | Steers toward the layout's best line on a full rack, or toward the leftover pins on a spare. |
 | 🛡️ Guard Rails | Bumpers for that throw. |
+| 🧲 Magnet | After contact, every pin that's down and moving is pulled toward the nearest standing pin within 130 px (scaled), so falling pins crash into the ones still up. |
+| ☃️ Snowball | Each solid hit grows the ball ×1.1 (mass with its area), up to ×2.6. Rewards a good line: it does little from the edge. |
+| 🔁 Ricochet | No contact damping: the ball keeps its speed, rebounds off the kickbacks at 95%, and bounces off the back cushion twice, aimed at the centre of what's still standing. |
+
+**Rare** (shop only, 5 coins)
+
+| Power-up | Effect |
+| --- | --- |
+| 🕳️ Black Hole | At first contact a vortex opens in line with the hit, at the middle of the standing pins, for 0.9 s. Its reach is 1.8× the bomb radius: a sharp first pull, then a swirling drag that tears standing pins off their spots (the nearer, the likelier). |
+| 🔦 Pin Laser | 0.25 s after release, a beam along the ball's launch line (2.6 ball radii wide) topples every pin in it, blowing each sideways into its neighbours. Strong on spares. |
+| ✖️ Double Down | This ball's mult ×2 (applied after every other mult bonus). |
+| 🔂 Encore | One extra ball this frame (they stack). Wasted if the frame ends on a clear first. |
+
+**Legendary** (shop only, 8 coins)
+
+| Power-up | Effect |
+| --- | --- |
+| 🌋 Earthquake | At first contact the deck shakes for 1.4 s; each standing pin topples with a 1.5/s chance. Usually leaves only a handful. |
+| 👑 Midas Ball | Triple chips for this ball, and +1 coin for every 5 pins it knocks down. |
 
 ## Perks (16)
 
@@ -59,19 +87,31 @@ Drafted 1 of 3 after each cleared stage (rare perks are offered at 0.45 weight);
 
 - **Stage clear:** +3 coins, plus Overkill +1 per 150 points over the target (max 4), plus Interest
   if you have it (+1 per 3 coins held, max 5).
-- **Shop:** two random power-ups at 3 coins each; perk reroll costs 2. Starting coins: 2.
+- **Shop** (`Run.offerShop`): four items after every cleared stage, never the same power-up twice.
+  - Two picks, each rare 40% of the time (else common).
+  - A third that is legendary 30% of the time (else rare), so there's always something special.
+  - A 🎁 **Mystery Box** for 2 coins: a random power-up, revealed when bought (common 65%, rare 28%,
+    legendary 7%).
+  - Prices: common 3, rare 5, legendary 8. A perk reroll costs 2. Starting coins: 2.
+  - Rare stock gets a heavier frame and a badge; legendary stock shimmers.
 
 ## Balance
 
 `npm run sim:balance` plays whole runs with simulated bowlers (aim error σ = 15 / 35 / 60 px around the
-best line, random perks, power-ups armed on first balls). Current targets:
-**400 · 600 · 790 · 1000 · 1220 · 1330**.
+best line, random perks, power-ups armed on first balls, the priciest shop items they can afford).
+Current targets: **400 · 600 · 790 · 1000 · 1220 · 1330**.
+
+With 80 runs per level (30 runs swing by ±10 points):
 
 | Bowler | Win rate | Typical run |
 | --- | --- | --- |
-| Strong | ~30% | most reach stage 4+ |
-| Average | ~23% | failures spread across stages 3–6 |
-| Beginner | ~10% | often out by stage 2–4 |
+| Strong | ~16% | most reach stage 3+; the last two lanes are the wall |
+| Average | ~11–15% | failures spread across stages 3–6 |
+| Beginner | ~9–11% | often out by stage 2–4 |
+
+The item revamp (rarities, shop-only items, mystery box) didn't move these beyond the noise: the same
+model on the old item set gave 16% / 15% / 9%. The table above used to say ~30% / 23% / 10%; those
+figures predate later physics changes and no longer reproduce.
 
 Real players choose perks deliberately, so expect them to do somewhat better than the model.
 
@@ -79,6 +119,8 @@ Real players choose perks deliberately, so expect them to do somewhat better tha
 1. With the original 10-pin racks, the first targets (160→720) let even the beginner model win 48% of the time.
 2. Raising them to 200→1250 overshot. Around 200→1080 gave a 33% / 15% / 8% spread.
 3. The switch to 55 pins rescaled every number. The current values come after widening the lane.
+4. The item revamp added three common pin drops, four rare and two legendary shop-only items, and a
+   mystery box. Win rates stayed within noise of the old item set.
 
 ## Ideas
 
