@@ -11,7 +11,7 @@ import {
   repaintLane,
 } from './art.ts';
 import type { BallStyle } from './art.ts';
-import { buzz, Sfx } from './audio.ts';
+import { buzz, setRumble, Sfx } from './audio.ts';
 import {
   BALL_R,
   BALL_START_Y,
@@ -29,6 +29,8 @@ import {
   WALL_X,
 } from './constants.ts';
 import type { Hud } from './hud.ts';
+import { flickThrow } from './flick.ts';
+import { Gamepads, moveFocus, pressFocused, topDialog } from './gamepad.ts';
 import { Motion, motionNeedsTap, motionSupported } from './motion.ts';
 import { hitTier, Run, pinInfo, POWERS } from './run.ts';
 import { isSplit, provisionalTotal, scoreFrames } from './scoring.ts';
@@ -93,6 +95,11 @@ export class Lanes extends ex.Scene {
   private readonly sim = new Sim();
   private readonly sfx = new Sfx();
   private readonly motion = new Motion();
+  private readonly pads = new Gamepads();
+  /** What the player last bowled or lined up with, for the how-to hint. */
+  private lastInput: 'touch' | 'pad' = 'touch';
+  /** Seconds left showing the board number after lining up with a controller. */
+  private padBoardT = 0;
   /** The player chose swing controls (they apply once the sensors are running). */
   private swingWanted = false;
   /** Bumped on every swing toggle, so a slow permission answer can't undo a later choice. */
@@ -191,8 +198,13 @@ export class Lanes extends ex.Scene {
     this.sim.placeBall(0);
 
     const toWorld = (e: PointerEvent) => engine.screen.pageToWorldCoordinates(ex.vec(e.pageX, e.pageY));
+    setRumble((p) => this.pads.rumble(p));
+    // A pointer or key press ends controller-style focus rings in menus.
+    window.addEventListener('keydown', () => document.body.classList.remove('pad-nav'));
     window.addEventListener('pointerdown', (e) => {
       this.sfx.unlock();
+      document.body.classList.remove('pad-nav');
+      this.useInput('touch');
       if ((e.target as HTMLElement).closest('button, input, label, .overlay')) return;
       this.onDown(toWorld(e), e.pointerId);
     });
@@ -222,6 +234,7 @@ export class Lanes extends ex.Scene {
       /* storage unavailable */
     }
     this.hud.setSwing(this.swingWanted);
+    this.refreshHint();
     // Where no permission is needed, the sensors can start now. Otherwise (iOS, recent Chrome) access
     // is asked for on a tap: the switch, or Play.
     if (this.swingWanted && !motionNeedsTap()) void this.setSwing(true);
@@ -244,6 +257,7 @@ export class Lanes extends ex.Scene {
       this.motion.stop();
       save(false);
       this.hud.setSwing(false);
+      this.refreshHint();
       return;
     }
     this.hud.setSwing(true);
@@ -258,12 +272,14 @@ export class Lanes extends ex.Scene {
           ? 'Motion access was blocked. Allow motion sensors for this site in your browser settings to swing.'
           : 'This device has no motion sensor to swing with.',
       );
+      this.refreshHint();
       return;
     }
     const first = !this.swingWanted;
     this.swingWanted = true;
     save(true);
     this.hud.setSwing(true);
+    this.refreshHint();
     if (first) {
       this.throws = 0;
       if (this.phase === 'aim') this.hud.hint(true);
@@ -275,6 +291,78 @@ export class Lanes extends ex.Scene {
         /* ignore */
       }
       if (!seen) this.hud.showSwingIntro();
+    }
+  }
+
+  // ---- Controllers --------------------------------------------------------------
+
+  private useInput(kind: 'touch' | 'pad'): void {
+    if (this.lastInput === kind) return;
+    this.lastInput = kind;
+    this.refreshHint();
+    if (this.phase === 'aim') this.hud.hint(true);
+  }
+
+  private refreshHint(): void {
+    this.hud.setControlsHint(this.lastInput === 'pad' ? 'pad' : this.swingControls ? 'swing' : 'touch');
+  }
+
+  /** Reads the controllers once a frame: menus while a dialog is open, otherwise the game. */
+  private handlePads(dt: number): void {
+    const f = this.pads.poll();
+    const dialog = topDialog();
+    for (const e of f.events) {
+      if (e.type === 'connected' || e.type === 'disconnected') {
+        this.hud.setPadConnected(e.count, e.type === 'connected' ? 'Controller connected' : 'Controller disconnected');
+        continue;
+      }
+      if (dialog) {
+        if (e.type !== 'press') continue;
+        if (e.button === 'confirm') {
+          this.sfx.unlock();
+          pressFocused(dialog);
+        } else if (e.button === 'up' || e.button === 'down' || e.button === 'left' || e.button === 'right') {
+          moveFocus(dialog, e.button);
+        }
+        continue;
+      }
+      if (e.type === 'throw') {
+        if (this.phase === 'aim' && !this.gesture) {
+          this.useInput('pad');
+          this.padBoardT = 0;
+          this.hud.setBoardNumber(null);
+          if (e.throw) this.throwBall(e.throw.speed, e.throw.angle, e.throw.spin);
+        }
+        continue;
+      }
+      if (e.button === 'confirm') {
+        this.sfx.unlock();
+        this.hurry();
+      } else if (e.button === 'menu') {
+        if (this.phase !== 'menu') this.openMenu();
+      } else if (e.button.startsWith('slot')) {
+        const i = Number(e.button.slice(4)) - 1;
+        if (this.run && this.phase === 'aim' && this.run.inventory[i]) this.toggleArm(i);
+      }
+    }
+
+    // Lining up with a stick or the d-pad.
+    if (dialog || this.phase !== 'aim' || this.gesture) return;
+    if (f.swinging) {
+      this.useInput('pad');
+      this.padBoardT = 0;
+      this.hud.setBoardNumber(null);
+    } else if (f.aim) {
+      this.useInput('pad');
+      const lim = LANE_HALF - BALL_R + 8;
+      const x = Math.max(-lim, Math.min(lim, this.sim.ball.x + f.aim * 260 * dt));
+      if (boardAt(x) !== boardAt(this.sim.ball.x)) this.sfx.tick();
+      this.sim.ball.x = x;
+      this.hud.setBoardNumber(boardAt(x));
+      this.padBoardT = 0.8;
+    } else if (this.padBoardT > 0) {
+      this.padBoardT -= dt;
+      if (this.padBoardT <= 0) this.hud.setBoardNumber(null);
     }
   }
 
@@ -474,12 +562,16 @@ export class Lanes extends ex.Scene {
 
   // ---- Input ------------------------------------------------------------------
 
+  /** A tap (or the confirm button) hurries the between-ball sequence along. */
+  private hurry(): void {
+    if ((this.phase === 'result' || this.phase === 'return') && this.phaseT > 0.35) {
+      this.phaseT = Math.max(this.phaseT, this.phaseDur - 0.05);
+    }
+  }
+
   private onDown(pos: ex.Vector, id: number): void {
     if (this.phase !== 'aim') {
-      // Tap to hurry the between-ball sequence along.
-      if ((this.phase === 'result' || this.phase === 'return') && this.phaseT > 0.35) {
-        this.phaseT = Math.max(this.phaseT, this.phaseDur - 0.05);
-      }
+      this.hurry();
       return;
     }
     if (this.gesture) return;
@@ -540,34 +632,8 @@ export class Lanes extends ex.Scene {
     }
     if (g.mode !== 'throw') return;
 
-    const stroke = g.samples.slice(g.lowestIdx);
-    const end = stroke[stroke.length - 1];
-    // Velocity over the last ~110 ms of the flick.
-    let k = stroke.length - 1;
-    while (k > 0 && end.t - stroke[k - 1].t < 0.11) k--;
-    const first = stroke[k];
-    const dt = Math.max(0.016, end.t - first.t);
-    const vy = (end.y - first.y) / dt;
-    if (vy > -380) return; // Too gentle: treat it as repositioning.
-
-    const power = Math.max(0, Math.min(1, (-vy - 380) / 2600));
-    const speed = MIN_SPEED + power * (MAX_SPEED - MIN_SPEED);
-    // Hook comes from how much the stroke bends: bow out right → hook left.
-    // The launch line comes from the stroke as a whole, so curving doesn't also steer.
-    const s0 = stroke[0];
-    const cx = end.x - s0.x;
-    const cy = end.y - s0.y;
-    const angle = Math.max(-0.06, Math.min(0.06, Math.atan2(cx, -cy) * 0.3));
-    const len = Math.hypot(cx, cy) || 1;
-    let dev = 0;
-    for (const p of stroke) {
-      const d = (cx * (p.y - s0.y) - cy * (p.x - s0.x)) / len;
-      if (Math.abs(d) > Math.abs(dev)) dev = d;
-    }
-    let spin = Math.max(-1, Math.min(1, -dev / (len * 0.16)));
-    if (Math.abs(spin) < 0.1) spin = 0;
-
-    this.throwBall(speed, angle, spin);
+    const t = flickThrow(g.samples.slice(g.lowestIdx));
+    if (t) this.throwBall(t.speed, t.angle, t.spin);
   }
 
   private throwBall(speed: number, angle: number, spin: number): void {
@@ -926,6 +992,7 @@ export class Lanes extends ex.Scene {
   override onPreUpdate(engine: ex.Engine, elapsed: number): void {
     const dt = Math.min(elapsed / 1000, 0.05);
     this.phaseT += dt;
+    this.handlePads(dt);
 
     // Slow motion right after the ball reaches the pins.
     let timeScale = 1;

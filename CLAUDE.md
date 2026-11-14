@@ -13,13 +13,13 @@ roguelike "Neon Run" mode with a 55-pin rack.
 ## Checks
 
 - Type-check: `npm run typecheck`
-- Tests: `npm test` (scoring, swing-detection and sound-rendering unit tests and physics regression checks; seconds)
+- Tests: `npm test` (scoring, flick/stick, swing-detection and sound-rendering unit tests and physics regression checks; seconds)
 - Build: `npm run build`
 
 ## Conventions
 
-- `src/sim.ts`, `src/run.ts`, `src/scoring.ts`, `src/constants.ts`, `src/swing.ts` and `src/audio-synth.ts`
-  must stay free of Excalibur, DOM and Web Audio code so `tools/sim/` can run them in Node.
+- `src/sim.ts`, `src/run.ts`, `src/scoring.ts`, `src/constants.ts`, `src/flick.ts`, `src/swing.ts` and
+  `src/audio-synth.ts` must stay free of Excalibur, DOM and Web Audio code so `tools/sim/` can run them in Node.
 - Use explicit `.ts` import extensions and erasable TypeScript only (no enums or parameter properties):
   the sim tools run under Node's type stripping.
 - After changing physics or balance, run `npm run sim:pinfall` / `npm run sim:balance` and update the

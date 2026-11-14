@@ -40,6 +40,10 @@ function guardDialogs(): void {
 
 const FLICK_HINT = '<b>Slide</b> to line up · <b>Flick up</b> to bowl<br />Curve the flick to <b>hook</b> the ball';
 const SWING_HINT = '<b>Hold</b> your thumb down · <b>Swing</b>, then <b>let go</b><br />Twist your wrist to <b>hook</b> the ball';
+const PAD_HINT = '<b>Stick</b> or <b>d-pad</b> to line up · <b>Pull back</b>, then <b>push</b> to bowl<br />Curve the push to <b>hook</b> the ball';
+
+/** Which controls the how-to-bowl hint describes. */
+export type ControlsHint = 'touch' | 'swing' | 'pad';
 
 export type BannerKind = 'strike' | 'spare' | 'split' | 'gutter' | 'plain';
 
@@ -235,9 +239,20 @@ export class Hud {
     el.hidden = !note;
     // Outside the menu the note would go unseen, so it becomes a toast.
     if (note && !document.querySelector('dialog:modal')) toast(note, 5000);
+  }
+
+  /** Sets the how-to-bowl hint for the controls in use. */
+  setControlsHint(kind: ControlsHint): void {
     const hint = $('hint');
-    hint.classList.toggle('swing', on);
-    hint.querySelector('p')!.innerHTML = on ? SWING_HINT : FLICK_HINT;
+    hint.classList.toggle('noHand', kind !== 'touch');
+    hint.querySelector('p')!.innerHTML = kind === 'swing' ? SWING_HINT : kind === 'pad' ? PAD_HINT : FLICK_HINT;
+  }
+
+  /** Controllers came or went: the menu explains the controller controls while one is connected. */
+  setPadConnected(count: number, announce: string): void {
+    $('padHow').hidden = count === 0;
+    // In the menu the controller line says enough; a toast would only wait for the menu to close.
+    if (!document.querySelector('dialog:modal')) toast(announce, 3000);
   }
 
   /** How to swing, and a word about grip. Shown the first time swing controls are switched on. */

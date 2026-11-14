@@ -336,10 +336,19 @@ export class Sfx {
   }
 }
 
+let rumble: ((pattern: number | number[]) => void) | null = null;
+
+/** Also rumble a game controller whenever the phone would vibrate. */
+export function setRumble(fn: (pattern: number | number[]) => void): void {
+  rumble = fn;
+}
+
+/** Haptic feedback: the phone's vibration motor, and a controller's rumble where there is one. */
 export function buzz(pattern: number | number[]): void {
   try {
     navigator.vibrate?.(pattern);
   } catch {
     /* not allowed here */
   }
+  rumble?.(pattern);
 }

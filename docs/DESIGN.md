@@ -28,6 +28,26 @@ One gesture does everything (`Lanes.onDown/onMove/onUp` in `src/lanes.ts`):
 
 Tapping during the result or the camera's return skips ahead.
 
+### Controllers
+
+Any game controller the browser recognises works, over USB or Bluetooth, through the Gamepad API
+(`src/gamepad.ts`, polled each frame from `Lanes.handlePads`). Buttons are read by position in the
+browser's standard layout, so the bottom face button confirms whatever its label.
+
+- **Line up:** either stick sideways, or the d-pad.
+- **Bowl:** pull either stick back, then push it forward. The stroke from the stick's lowest point
+  goes through the same `flickThrow()` as a finger (`src/flick.ts`), scaled so a quick push matches a
+  quick flick: push speed sets ball speed, a diagonal push the launch angle, and curving the push
+  hooks (a stick needs about twice a finger's bend, since thumbs curve naturally). After a throw the
+  stick has to come back to the centre before it can bowl again.
+- **Buttons:** bottom face button skips ahead between balls; + / Start opens the menu; L, R, ZL, ZR
+  (LB, RB, LT, RT) arm Neon Run power-up slots 1–4.
+- **Menus:** while a dialog is open the d-pad or a stick moves focus between its controls and the
+  bottom face button presses the focused one.
+- Rumble follows the phone's vibration cues where the browser supports `vibrationActuator`.
+
+Controllers without a standard layout get the first stick, button 0 (confirm) and button 9 (menu).
+
 ### Swing controls (optional)
 
 On a phone with a gyroscope, "Swing phone to bowl" (menu switch, and the 📱 button next to mute) replaces
@@ -68,6 +88,8 @@ src/
   scoring.ts     Ten-pin scoring and split detection (Classic)
   run.ts         Neon Run state: stages, perks, power-ups, points, shop offers
   hud.ts         HTML overlay: scoreboard, run bar, banners, menus, shop
+  flick.ts       Flick and controller-stick throws (pure TypeScript, runs in Node)
+  gamepad.ts     Game controllers (Gamepad API) and controller menu navigation
   swing.ts       Phone-swing detection (pure TypeScript, runs in Node)
   motion.ts      Motion sensor access and buffering for swing controls
   swing-debug.ts Swing tuning overlay, loaded only with ?swingdebug

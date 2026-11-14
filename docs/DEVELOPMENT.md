@@ -18,7 +18,7 @@ TypeScript-only runtime syntax such as enums and parameter properties (`erasable
 | Command | What it does | Time |
 | --- | --- | --- |
 | `npm run typecheck` | TypeScript, strict mode | seconds |
-| `npm test` | Scoring, swing-detection and sound-rendering unit tests + physics regression checks (`tools/sim/settle.ts`) | seconds |
+| `npm test` | Scoring, flick/stick, swing-detection and sound-rendering unit tests + physics regression checks (`tools/sim/settle.ts`) | seconds |
 | `npm run sim:pinfall` | Pinfall survey for both racks and every power-up | ~2–5 min |
 | `npm run sim:balance` | Neon Run win rates by skill level (`--runs 30`) | ~5–10 min |
 
@@ -45,6 +45,17 @@ When automating with Playwright:
 - Headless Chromium renders in software, and above 200 ms per frame Excalibur's clock treats the
   frame as 1 ms, so the game crawls at high pixel densities.
 - Frame rates measured headless don't reflect real devices.
+
+## Controllers
+
+- `tools/sim/flick.test.ts` (part of `npm test`) covers the flick and the stick swing.
+- With the dev server running, `node tools/gamepad-check.ts` drives a fake standard controller in
+  Chromium (it replaces `navigator.getGamepads`): menu navigation, lining up, a stick swing,
+  skipping and the menu button.
+- On real hardware: browsers expose a controller only after one of its buttons is pressed on the page.
+  Tune the stick in `STICK` in `src/flick.ts`.
+- Controller presses may not count as a user gesture for audio, so with no tap or click at all the
+  game can stay silent until the first one.
 
 ## Swing controls
 
@@ -139,6 +150,11 @@ available target (see CLAUDE.md). Patterns in place:
   `DeviceMotionEvent` exists and the main pointer is coarse, requested from a tap via
   `DeviceMotionEvent.requestPermission()` where it exists, and turned back off with an explanation if
   refused. The first-time instructions are another guarded modal `<dialog>`.
+- **Controllers** use the Gamepad API (Baseline widely available), polled each frame; connection is
+  detected by polling, not `gamepadconnected`. In dialogs the controller moves real DOM focus, and a
+  `pad-nav` class on the body shows the focus ring (programmatic focus after a tap wouldn't otherwise
+  match `:focus-visible`); any pointer or key press removes it. Rumble (`vibrationActuator`) is a
+  progressive enhancement.
 - **Install** prefers `navigator.install()` (Web Install API) and falls back to `beforeinstallprompt`.
 - **Motion:** decorative animations are opted in with `@media (prefers-reduced-motion: no-preference)`;
   ones that carry information (banners, points) swap to an opacity-only keyframe under `reduce` so they
@@ -154,8 +170,9 @@ as a fixed number and resized the Bungee display text).
 
 | Goal | Place |
 | --- | --- |
-| Feel of throws (speed range, hook strength) | `MIN_SPEED`, `MAX_SPEED`, `HOOK` in `constants.ts`; gesture maths in `Lanes.onUp` |
+| Feel of throws (speed range, hook strength) | `MIN_SPEED`, `MAX_SPEED`, `HOOK` in `constants.ts`; flick maths in `flickThrow()` in `flick.ts` |
 | Feel of swing controls | `SWING` in `swing.ts` |
+| Feel of controller sticks | `STICK` in `flick.ts`; button mapping in `gamepad.ts` |
 | How easily pins fall | `TUNE` in `sim.ts`, `fallScale` per rack layout |
 | Rack shapes | `CLASSIC_RACK` / `MEGA_RACK` in `constants.ts` |
 | Stage targets, perks, power-up odds | `run.ts` |
