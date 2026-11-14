@@ -1,5 +1,6 @@
 import * as ex from 'excalibur';
 import {
+  ballQuality,
   makeBall,
   makeBallGloss,
   makeBallShadow,
@@ -131,6 +132,8 @@ export class Lanes extends ex.Scene {
   private lastX = 0;
   private bumpers = false;
   private style: BallStyle | null = null;
+  /** Bitmap quality the ball graphics were last built at (see `ballQuality`). */
+  private ballQ = 0;
   private throws = 0;
   private mode: Mode = 'classic';
   private run: Run | null = null;
@@ -184,8 +187,6 @@ export class Lanes extends ex.Scene {
       const info = pinInfo(kind)!;
       this.specialGfx.set(kind, { standing: makeStandingPin(info.color), fallen: makeFallenPin(info.color) });
     }
-    this.ballShadow.graphics.use(makeBallShadow());
-    this.ballGloss.graphics.use(makeBallGloss());
     this.add(this.ballShadow);
     this.add(this.ball);
     this.add(this.ballGloss);
@@ -382,7 +383,7 @@ export class Lanes extends ex.Scene {
   private newGame(style: BallStyle, bumpers: boolean, mode: Mode = this.mode): void {
     // Called from a tap (Play, Bowl again), when browsers let us ask for motion access.
     if (this.swingWanted && !this.motion.active) void this.setSwing(true);
-    if (style !== this.style) this.ball.graphics.use(makeBall(style));
+    if (style !== this.style) this.ballQ = 0;
     this.style = style;
     this.mode = mode;
     this.bumpers = mode === 'classic' && bumpers;
@@ -1275,6 +1276,7 @@ export class Lanes extends ex.Scene {
       scale *= 1 - k * 0.35;
       opacity = 1 - k;
     }
+    this.ensureBallQuality(scale);
     for (const a of [this.ball, this.ballGloss]) {
       a.pos = ex.vec(b.x, b.y);
       a.scale = ex.vec(scale, scale);
@@ -1286,6 +1288,22 @@ export class Lanes extends ex.Scene {
     this.ballShadow.scale = ex.vec(scale, scale);
     this.ballShadow.graphics.opacity = opacity * (b.gutter ? 0.5 : 1);
     this.ballShadow.graphics.isVisible = this.phase !== 'sweep';
+  }
+
+  /**
+   * Rebuild the ball bitmaps when the ball is drawn bigger than they were rasterized for (Mega Ball,
+   * Snowball, Wide perk, high-DPI screens), so it stays crisp instead of being stretched.
+   */
+  private ensureBallQuality(scale: number): void {
+    const engine = this.engine;
+    if (!this.style || !engine) return;
+    const devicePerWorld = (engine.canvas.width / engine.screen.resolution.width) * this.zoom;
+    const q = ballQuality(scale * devicePerWorld);
+    if (q <= this.ballQ) return;
+    this.ballQ = q;
+    this.ball.graphics.use(makeBall(this.style, q));
+    this.ballGloss.graphics.use(makeBallGloss(q));
+    this.ballShadow.graphics.use(makeBallShadow(q));
   }
 
   /** Effects for the newer power-ups, drawn in world space. */

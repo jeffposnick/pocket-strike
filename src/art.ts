@@ -510,12 +510,18 @@ export const BALL_STYLES: BallStyle[] = [
   { name: 'Venom', a: '#b6ff3b', b: '#0d7a3a', swirl: '#f2ffcc' },
 ];
 
-export function makeBall(style: BallStyle): ex.Canvas {
+/**
+ * The ball graphics take a `quality` (bitmap oversampling) so they stay crisp when the actor is
+ * scaled up (Mega Ball, Snowball, Wide perk) and on high-DPI screens; see `ballQuality()`.
+ */
+export function makeBall(style: BallStyle, quality = 1): ex.Canvas {
   const size = BALL_R * 2 + 4;
   const c = size / 2;
   return new ex.Canvas({
     width: size,
     height: size,
+    quality,
+    smoothing: true,
     cache: true,
     draw: (ctx) => {
       ctx.clearRect(0, 0, size, size);
@@ -573,12 +579,14 @@ export function makeBall(style: BallStyle): ex.Canvas {
 }
 
 /** Fixed lighting on top of the rotating ball. */
-export function makeBallGloss(): ex.Canvas {
+export function makeBallGloss(quality = 1): ex.Canvas {
   const size = BALL_R * 2 + 4;
   const c = size / 2;
   return new ex.Canvas({
     width: size,
     height: size,
+    quality,
+    smoothing: true,
     cache: true,
     draw: (ctx) => {
       ctx.clearRect(0, 0, size, size);
@@ -601,12 +609,19 @@ export function makeBallGloss(): ex.Canvas {
   });
 }
 
-export function makeBallShadow(): ex.Canvas {
+/** Bitmap quality for a ball drawn at `screenScale` device pixels per world unit, in steps so it rarely rebuilds. */
+export function ballQuality(screenScale: number): number {
+  return Math.min(12, Math.max(1, Math.ceil(screenScale * 2) / 2));
+}
+
+export function makeBallShadow(quality = 1): ex.Canvas {
   const size = BALL_R * 2 + 30;
   const c = size / 2;
   return new ex.Canvas({
     width: size,
     height: size,
+    quality,
+    smoothing: true,
     cache: true,
     draw: (ctx) => {
       ctx.clearRect(0, 0, size, size);
