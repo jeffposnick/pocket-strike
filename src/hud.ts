@@ -40,8 +40,10 @@ function guardDialogs(): void {
 }
 
 const FLICK_HINT = '<b>Slide</b> to line up · <b>Flick up</b> to bowl<br />Curve the flick to <b>hook</b> the ball';
-const SWING_HINT = '<b>Hold</b> your thumb down · <b>Swing</b>, then <b>let go</b><br />Twist your wrist to <b>hook</b> the ball';
-const PAD_HINT = '<b>Stick</b> or <b>d-pad</b> to line up · <b>Pull back</b>, then <b>push</b> to bowl<br />Curve the push to <b>hook</b> the ball';
+const SWING_HINT =
+  '<b>Hold</b> your thumb down · <b>Swing</b>, then <b>let go</b><br />Twist your wrist to <b>hook</b> the ball';
+const PAD_HINT =
+  '<b>Stick</b> or <b>d-pad</b> to line up · <b>Pull back</b>, then <b>push</b> to bowl<br />Curve the push to <b>hook</b> the ball';
 
 /** Which controls the how-to-bowl hint describes. */
 export type ControlsHint = 'touch' | 'swing' | 'pad';
@@ -258,7 +260,10 @@ export class Hud {
     closeDialog('shop');
     const parts: string[] = [];
     if (best) parts.push(`Best classic game: ${best}`);
-    if (bestRun) parts.push(`Furthest run: stage ${Math.min(bestRun, STAGES.length)}${bestRun >= STAGES.length ? ' (champion!)' : ''}`);
+    if (bestRun)
+      parts.push(
+        `Furthest run: stage ${Math.min(bestRun, STAGES.length)}${bestRun >= STAGES.length ? ' (champion!)' : ''}`,
+      );
     $('menuBest').textContent = parts.length ? parts.join(' · ') : 'No games bowled yet';
 
     // A radio group, so the chosen ball is exposed as a checked state, not just a highlight.
@@ -274,7 +279,11 @@ export class Hud {
       radio.name = 'ball';
       radio.checked = i === this.styleIndex;
       radio.addEventListener('change', () => (this.styleIndex = i));
-      label.append(radio, document.createElement('i'), Object.assign(document.createElement('span'), { textContent: s.name }));
+      label.append(
+        radio,
+        document.createElement('i'),
+        Object.assign(document.createElement('span'), { textContent: s.name }),
+      );
       picks.appendChild(label);
     });
 
@@ -297,7 +306,8 @@ export class Hud {
     $('finalScore').textContent = String(stats.score);
     $('finalBest').textContent = stats.newBest ? 'New personal best!' : `Best: ${stats.best}`;
     $('finalBest').classList.toggle('new', stats.newBest);
-    $('finalStats').textContent = `${stats.strikes} strike${stats.strikes === 1 ? '' : 's'} · ${stats.spares} spare${stats.spares === 1 ? '' : 's'}`;
+    $('finalStats').textContent =
+      `${stats.strikes} strike${stats.strikes === 1 ? '' : 's'} · ${stats.spares} spare${stats.spares === 1 ? '' : 's'}`;
     $('finalRating').textContent = rating(stats.score);
     openDialog('over');
     $('again').onclick = () => {
@@ -394,12 +404,7 @@ export class Hud {
     window.setTimeout(() => el.remove(), 1400);
   }
 
-  showShop(
-    run: Run,
-    reward: { label: string; coins: number }[],
-    onDone: () => void,
-    onBuy: () => void,
-  ): void {
+  showShop(run: Run, reward: { label: string; coins: number }[], onDone: () => void, onBuy: () => void): void {
     $('shopTitle').textContent = `${run.stageInfo.name} cleared!`;
     $('shopScore').textContent = `${run.stageScore} / ${run.stageInfo.target}`;
     $('shopReward').textContent = reward.map((r) => `${r.label} +${r.coins}`).join(' · ');
@@ -447,7 +452,13 @@ export class Hud {
         b.className = `power ${hidden ? 'mystery' : info.rarity}`;
         if (!hidden) b.style.setProperty('--c', info.color);
         const full = run.inventory.length >= run.slots;
-        const badge = hidden ? 'Mystery' : info.rarity === 'common' ? '' : info.rarity === 'rare' ? 'Rare' : 'Legendary';
+        const badge = hidden
+          ? 'Mystery'
+          : info.rarity === 'common'
+            ? ''
+            : info.rarity === 'rare'
+              ? 'Rare'
+              : 'Legendary';
         const name = hidden ? 'Mystery Box' : info.name;
         const desc = hidden
           ? 'A random power-up. Usually common, sometimes rare, now and then legendary.'
@@ -478,13 +489,7 @@ export class Hud {
     };
   }
 
-  showRunOver(
-    run: Run,
-    victory: boolean,
-    newBest: boolean,
-    onAgain: () => void,
-    onMenu: () => void,
-  ): void {
+  showRunOver(run: Run, victory: boolean, newBest: boolean, onAgain: () => void, onMenu: () => void): void {
     $('roTitle').textContent = victory ? 'CHAMPION!' : 'RUN OVER';
     $('roTitle').classList.toggle('win', victory);
     $('roSub').textContent = victory

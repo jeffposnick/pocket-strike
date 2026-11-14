@@ -108,7 +108,17 @@ export class Motion {
     const r = e.rotationRate;
     const a = e.accelerationIncludingGravity;
     // Devices without a gyroscope report nulls; there's no swing to read from those.
-    if (!r || !a || r.alpha === null || r.beta === null || r.gamma === null || a.x === null || a.y === null || a.z === null) return;
+    if (
+      !r ||
+      !a ||
+      r.alpha === null ||
+      r.beta === null ||
+      r.gamma === null ||
+      a.x === null ||
+      a.y === null ||
+      a.z === null
+    )
+      return;
     this.gotData = true;
     const s: MotionSample = { t: e.timeStamp / 1000, ax: a.x, ay: a.y, az: a.z, rx: r.beta, ry: r.gamma, rz: r.alpha };
     this.samples.push(s);

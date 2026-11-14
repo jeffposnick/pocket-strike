@@ -201,7 +201,10 @@ header {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
-  transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+  transition:
+    background 0.3s,
+    box-shadow 0.3s,
+    transform 0.3s;
 }
 
 #rack i.special {
@@ -287,7 +290,9 @@ header {
   color: var(--muted);
   white-space: nowrap;
   opacity: 0;
-  transition: opacity 0.25s, transform 0.25s;
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
   font-variant-numeric: tabular-nums;
 }
 
@@ -388,12 +393,16 @@ header {
 
 #banner.spare #bannerText {
   color: var(--cyan);
-  text-shadow: 0 0 22px var(--cyan), 0 4px 0 #0a2e3a;
+  text-shadow:
+    0 0 22px var(--cyan),
+    0 4px 0 #0a2e3a;
 }
 
 #banner.split #bannerText {
   color: var(--amber);
-  text-shadow: 0 0 18px var(--amber), 0 4px 0 #3a2a05;
+  text-shadow:
+    0 0 18px var(--amber),
+    0 4px 0 #3a2a05;
 }
 
 #banner.gutter #bannerText {
@@ -404,7 +413,9 @@ header {
 
 #banner.plain #bannerText {
   font-size: clamp(36px, 11vw, 64px);
-  text-shadow: 0 0 16px rgba(155, 107, 255, 0.8), 0 4px 0 #1b1240;
+  text-shadow:
+    0 0 16px rgba(155, 107, 255, 0.8),
+    0 4px 0 #1b1240;
 }
 
 @keyframes banner-in {
@@ -564,7 +575,9 @@ dialog.overlay::backdrop {
   border-radius: 22px;
   background: linear-gradient(180deg, #1a1442, #110d2c);
   border: 1px solid var(--line);
-  box-shadow: 0 0 0 1px rgba(255, 63, 164, 0.15), 0 30px 80px rgba(0, 0, 0, 0.6),
+  box-shadow:
+    0 0 0 1px rgba(255, 63, 164, 0.15),
+    0 30px 80px rgba(0, 0, 0, 0.6),
     0 0 60px rgba(155, 107, 255, 0.25);
   text-align: center;
 }
@@ -581,7 +594,9 @@ dialog.overlay::backdrop {
 .logo span:first-child {
   font-size: 44px;
   color: var(--cyan);
-  text-shadow: 0 0 10px var(--cyan), 0 0 30px rgba(56, 243, 255, 0.6);
+  text-shadow:
+    0 0 10px var(--cyan),
+    0 0 30px rgba(56, 243, 255, 0.6);
   @media (prefers-reduced-motion: no-preference) {
     animation: buzz 4s infinite;
   }
@@ -590,7 +605,9 @@ dialog.overlay::backdrop {
 .logo span:last-child {
   font-size: 50px;
   color: var(--pink);
-  text-shadow: 0 0 10px var(--pink), 0 0 34px rgba(255, 63, 164, 0.7);
+  text-shadow:
+    0 0 10px var(--pink),
+    0 0 34px rgba(255, 63, 164, 0.7);
   transform: skewX(-8deg);
 }
 
@@ -665,7 +682,9 @@ dialog.overlay::backdrop {
   height: 38px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff 0, var(--a) 22%, var(--b) 100%);
-  box-shadow: inset -4px -6px 10px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset -4px -6px 10px rgba(0, 0, 0, 0.4),
+    0 4px 10px rgba(0, 0, 0, 0.4);
   transition: transform 0.2s;
 }
 
@@ -756,13 +775,19 @@ dialog.overlay::backdrop {
   font-size: 22px;
   letter-spacing: 0.04em;
   color: #fff;
-  box-shadow: 0 0 24px rgba(255, 63, 164, 0.5), 0 6px 0 #5a1847;
-  transition: transform 0.1s, box-shadow 0.1s;
+  box-shadow:
+    0 0 24px rgba(255, 63, 164, 0.5),
+    0 6px 0 #5a1847;
+  transition:
+    transform 0.1s,
+    box-shadow 0.1s;
 }
 
 .cta:active {
   transform: translateY(4px);
-  box-shadow: 0 0 18px rgba(255, 63, 164, 0.5), 0 2px 0 #5a1847;
+  box-shadow:
+    0 0 18px rgba(255, 63, 164, 0.5),
+    0 2px 0 #5a1847;
 }
 
 .ghost {
@@ -821,7 +846,9 @@ dialog.overlay::backdrop {
   font-size: 84px;
   line-height: 1;
   color: #fff;
-  text-shadow: 0 0 20px var(--pink), 0 0 50px rgba(155, 107, 255, 0.7);
+  text-shadow:
+    0 0 20px var(--pink),
+    0 0 50px rgba(155, 107, 255, 0.7);
 }
 
 #finalRating {
@@ -1020,7 +1047,9 @@ body.run-mode #boardNo {
   background: rgba(16, 12, 40, 0.7);
   display: grid;
   place-items: center;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
 }
 
 .slot.full {
@@ -1035,7 +1064,9 @@ body.run-mode #boardNo {
 .slot.armed {
   transform: translateY(-6px) scale(1.08);
   background: color-mix(in srgb, var(--c) 30%, #100c28);
-  box-shadow: 0 0 22px var(--c), 0 0 0 2px #fff;
+  box-shadow:
+    0 0 22px var(--c),
+    0 0 0 2px #fff;
   @media (prefers-reduced-motion: no-preference) {
     animation: armed 0.9s ease-in-out infinite alternate;
   }
@@ -1043,7 +1074,9 @@ body.run-mode #boardNo {
 
 @keyframes armed {
   to {
-    box-shadow: 0 0 34px var(--c), 0 0 0 2px #fff;
+    box-shadow:
+      0 0 34px var(--c),
+      0 0 0 2px #fff;
   }
 }
 
@@ -1119,7 +1152,9 @@ body:not(.run-mode) #points {
   font-weight: 800;
   font-size: 16px;
   white-space: nowrap;
-  text-shadow: 0 0 10px currentColor, 0 2px 4px rgba(0, 0, 0, 0.9);
+  text-shadow:
+    0 0 10px currentColor,
+    0 2px 4px rgba(0, 0, 0, 0.9);
   animation: floatUp 1.4s ease-out forwards;
   @media (prefers-reduced-motion: reduce) {
     animation-name: pts-fade;
@@ -1193,7 +1228,9 @@ body:not(.run-mode) #points {
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.05);
-  transition: transform 0.15s, border-color 0.15s;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
 }
 
 .perk:not(:disabled):hover {
@@ -1318,7 +1355,8 @@ body:not(.run-mode) #points {
   border-width: 2px;
   box-shadow: 0 0 14px color-mix(in srgb, var(--c) 55%, transparent);
   background:
-    linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--c) 22%, transparent) 50%, transparent 70%) 0 0 / 250% 100%,
+    linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--c) 22%, transparent) 50%, transparent 70%) 0 0 /
+      250% 100%,
     color-mix(in srgb, var(--c) 12%, transparent);
   @media (prefers-reduced-motion: no-preference) {
     animation: shimmer 3s linear infinite;
@@ -1327,7 +1365,9 @@ body:not(.run-mode) #points {
 
 @keyframes shimmer {
   to {
-    background-position: -250% 0, 0 0;
+    background-position:
+      -250% 0,
+      0 0;
   }
 }
 

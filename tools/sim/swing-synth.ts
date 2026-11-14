@@ -176,7 +176,15 @@ export function synthStill(seconds: number, tiltDeg = 0, spec: SwingSpec = {}): 
     const q = qmul(axisAngle([1, 0, 0], rateDeg * t * DEG), grip);
     const a = rot(conj(q), [0, 0, 9.81]);
     const w = rot(conj(grip), [rateDeg, 0, 0]);
-    samples.push({ t, ax: a[0], ay: a[1], az: a[2], rx: w[0] + gn * gauss(), ry: w[1] + gn * gauss(), rz: w[2] + gn * gauss() });
+    samples.push({
+      t,
+      ax: a[0],
+      ay: a[1],
+      az: a[2],
+      rx: w[0] + gn * gauss(),
+      ry: w[1] + gn * gauss(),
+      rz: w[2] + gn * gauss(),
+    });
   }
   return { samples, release: seconds, peak: rateDeg };
 }

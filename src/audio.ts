@@ -38,7 +38,15 @@ export class Sfx {
   private bank: Sounds | null = null;
   private voices = 0;
   private lastClack = 0;
-  private roll: { src: AudioBufferSourceNode; lfo: OscillatorNode; gain: GainNode; lp: BiquadFilterNode; hollow: BiquadFilterNode; lfoDepth: GainNode; pan: StereoPannerNode } | null = null;
+  private roll: {
+    src: AudioBufferSourceNode;
+    lfo: OscillatorNode;
+    gain: GainNode;
+    lp: BiquadFilterNode;
+    hollow: BiquadFilterNode;
+    lfoDepth: GainNode;
+    pan: StereoPannerNode;
+  } | null = null;
   muted = false;
 
   /** Must be called from a user gesture. */
@@ -95,12 +103,17 @@ export class Sfx {
 
   private useBank(c: AudioContext, bank: Bank): void {
     const buf = (...channels: Float32Array[]) => {
-      const b = new AudioBuffer({ length: channels[0].length, numberOfChannels: channels.length, sampleRate: c.sampleRate });
+      const b = new AudioBuffer({
+        length: channels[0].length,
+        numberOfChannels: channels.length,
+        sampleRate: c.sampleRate,
+      });
       channels.forEach((d, i) => b.copyToChannel(d as Float32Array<ArrayBuffer>, i));
       return b;
     };
     const list = (l: Float32Array[]) => l.map((d) => buf(d));
-    const keyed = (r: Record<number, Float32Array>) => Object.fromEntries(Object.entries(r).map(([k, d]) => [k, buf(d)]));
+    const keyed = (r: Record<number, Float32Array>) =>
+      Object.fromEntries(Object.entries(r).map(([k, d]) => [k, buf(d)]));
     if (this.verb) this.verb.buffer = buf(...bank.room);
     this.bank = {
       pin: list(bank.pin),
@@ -249,7 +262,12 @@ export class Sfx {
       this.play(this.pick(b.crash), { gain: 0.75, rate: rnd(0.96, 1.04), pan: p * 0.6, wet: 0.35 });
     } else {
       // Harder hits are brighter as well as louder.
-      this.play(this.pick(b.pin), { gain: 0.12 + v * 0.6, rate: rnd(0.92, 1.08) * (0.94 + v * 0.1), pan: p, wet: 0.22 });
+      this.play(this.pick(b.pin), {
+        gain: 0.12 + v * 0.6,
+        rate: rnd(0.92, 1.08) * (0.94 + v * 0.1),
+        pan: p,
+        wet: 0.22,
+      });
     }
   }
 
@@ -257,7 +275,12 @@ export class Sfx {
   panel(intensity: number, pan = 0): void {
     const b = this.bank;
     if (!b || this.voices > 28) return;
-    this.play(this.pick(b.panel), { gain: 0.15 + Math.min(1, intensity) * 0.5, rate: rnd(0.9, 1.1), pan: pan * 0.8, wet: 0.2 });
+    this.play(this.pick(b.panel), {
+      gain: 0.15 + Math.min(1, intensity) * 0.5,
+      rate: rnd(0.9, 1.1),
+      pan: pan * 0.8,
+      wet: 0.2,
+    });
   }
 
   /** A dull thud: the ball off a bumper, or into the pit cushion. */
@@ -316,7 +339,8 @@ export class Sfx {
   quake(): void {
     const b = this.bank;
     if (!b) return;
-    for (let i = 0; i < 4; i++) this.play(this.pick(b.thud), { gain: 0.8, rate: rnd(0.5, 0.7), pan: rnd(-0.6, 0.6), wet: 0.4, when: i * 0.3 });
+    for (let i = 0; i < 4; i++)
+      this.play(this.pick(b.thud), { gain: 0.8, rate: rnd(0.5, 0.7), pan: rnd(-0.6, 0.6), wet: 0.4, when: i * 0.3 });
     this.play(b.boom, { gain: 0.5, rate: 0.4, wet: 0.5 });
   }
 
@@ -341,9 +365,11 @@ export class Sfx {
     if (!b) return;
     const notes = [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.B5, NOTE.D6, NOTE.G6, NOTE.B6];
     const count = Math.min(notes.length, 4 + level);
-    notes.slice(0, count).forEach((f, i) =>
-      this.note('bell', f, { gain: 0.2, pan: (i / (count - 1) - 0.5) * 0.8, wet: 0.4, when: i * 0.07 }),
-    );
+    notes
+      .slice(0, count)
+      .forEach((f, i) =>
+        this.note('bell', f, { gain: 0.2, pan: (i / (count - 1) - 0.5) * 0.8, wet: 0.4, when: i * 0.07 }),
+      );
     this.play(b.pad, { gain: 0.3 + level * 0.08, wet: 0.5 });
   }
 

@@ -167,6 +167,8 @@ export function setupPwa(): void {
   });
 
   // iOS Safari has no install prompt: explain the Share-sheet route instead.
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ios =
+    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (ios && !isStandalone()) $('iosHint').hidden = false;
 }

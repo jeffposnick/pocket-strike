@@ -66,7 +66,15 @@ export function makeLaneTiles(): ex.Actor[] {
   return tiles;
 }
 
-function glowLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, color: string, width = 2): void {
+function glowLine(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  color: string,
+  width = 2,
+): void {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineCap = 'round';
@@ -182,7 +190,12 @@ function paintLane(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: num
     sheen.addColorStop(0.65, 'rgba(255,255,255,0.10)');
     sheen.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sheen;
-    ctx.fillRect(-LANE_HALF, Math.max(laneTop, DECK_Y), LANE_HALF * 2, Math.max(0, laneBot - Math.max(laneTop, DECK_Y)));
+    ctx.fillRect(
+      -LANE_HALF,
+      Math.max(laneTop, DECK_Y),
+      LANE_HALF * 2,
+      Math.max(0, laneBot - Math.max(laneTop, DECK_Y)),
+    );
 
     ctx.save();
     ctx.beginPath();
@@ -320,7 +333,6 @@ function paintLane(ctx: CanvasRenderingContext2D, x0: number, y0: number, w: num
 
   ctx.restore();
 }
-
 
 /** Painted pin spots for one rack layout, as an actor laid over the deck. */
 export function makeDeckSpots(layout: RackLayout): ex.Actor {

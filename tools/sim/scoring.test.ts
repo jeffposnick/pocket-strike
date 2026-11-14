@@ -40,8 +40,16 @@ eq(provisionalTotal([10, 7]), 24, 'live total counts bonus balls rolled so far')
 eq(classicPosition([]), { frame: 0, ball: 0, freshRack: true, over: false }, 'new game');
 eq(classicPosition([7]), { frame: 0, ball: 1, freshRack: false, over: false }, 'second ball at the leave');
 eq(classicPosition([10]), { frame: 1, ball: 0, freshRack: true, over: false }, 'a strike ends the frame');
-eq(classicPosition([...zeros(18), 10, 7]), { frame: 9, ball: 2, freshRack: false, over: false }, '10th: X then a count leaves pins');
-eq(classicPosition([...zeros(18), 7, 3]), { frame: 9, ball: 2, freshRack: true, over: false }, '10th: a spare earns a fresh rack');
+eq(
+  classicPosition([...zeros(18), 10, 7]),
+  { frame: 9, ball: 2, freshRack: false, over: false },
+  '10th: X then a count leaves pins',
+);
+eq(
+  classicPosition([...zeros(18), 7, 3]),
+  { frame: 9, ball: 2, freshRack: true, over: false },
+  '10th: a spare earns a fresh rack',
+);
 eq(classicPosition([...zeros(18), 7, 2]).over, true, '10th: an open frame ends the game');
 eq(classicPosition(Array(12).fill(10)).over, true, 'perfect game is over after 12 balls');
 
@@ -62,7 +70,8 @@ function stepwise(rolls: number[]) {
       tenth.push(k);
       const [a, b] = tenth;
       if (tenth.length === 1) [ball, fresh] = [1, a === 10];
-      else if (tenth.length === 2 && (a === 10 || a + b === 10)) [ball, fresh] = [2, (a === 10 && b === 10) || (a !== 10 && a + b === 10)];
+      else if (tenth.length === 2 && (a === 10 || a + b === 10))
+        [ball, fresh] = [2, (a === 10 && b === 10) || (a !== 10 && a + b === 10)];
       else over = true;
     }
   }
@@ -72,13 +81,16 @@ const flowRand = seeded(11);
 let flowOk = true;
 for (let g = 0; g < 3000 && flowOk; g++) {
   const rolls: number[] = [];
-  for (let up = 10; !classicPosition(rolls).over; ) {
+  for (let up = 10; !classicPosition(rolls).over;) {
     const k = flowRand() < 0.3 ? up : Math.floor(flowRand() * (up + 1));
     rolls.push(k);
     const pos = classicPosition(rolls);
     const ref = stepwise(rolls);
     up = pos.freshRack ? 10 : up - k;
-    if (pos.over !== ref.over || (!pos.over && (pos.frame !== ref.frame || pos.ball !== ref.ball || pos.freshRack !== ref.fresh))) {
+    if (
+      pos.over !== ref.over ||
+      (!pos.over && (pos.frame !== ref.frame || pos.ball !== ref.ball || pos.freshRack !== ref.fresh))
+    ) {
       flowOk = false;
       console.log(`FAIL  flow after ${JSON.stringify(rolls)}: ${JSON.stringify(pos)} vs ${JSON.stringify(ref)}`);
       break;
@@ -113,8 +125,16 @@ eq(run.points(10, null, false, 0, 1, ['midas']), { chips: 90, mult: 1, total: 90
 const r = new Run(seeded(3));
 const dropped = new Set<string>();
 for (let i = 0; i < 200; i++) for (const k of r.rollSpecials(55).values()) dropped.add(k);
-eq([...dropped].every((k) => k === 'gold' || DROPS.includes(k as never)), true, 'pins drop only gold and common power-ups');
-eq(DROPS.every((k) => dropped.has(k)), true, 'every common power-up can drop');
+eq(
+  [...dropped].every((k) => k === 'gold' || DROPS.includes(k as never)),
+  true,
+  'pins drop only gold and common power-ups',
+);
+eq(
+  DROPS.every((k) => dropped.has(k)),
+  true,
+  'every common power-up can drop',
+);
 let sawLegendary = false;
 let shelvesOk = true;
 for (let i = 0; i < 200; i++) {

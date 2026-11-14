@@ -419,7 +419,10 @@ export class Lanes extends ex.Scene {
 
   /** Updates the rack diagram, special pins in their colours. */
   private syncRack(): void {
-    this.hud.setRack(this.sim.standing().map((p) => p.id), this.rackColors());
+    this.hud.setRack(
+      this.sim.standing().map((p) => p.id),
+      this.rackColors(),
+    );
   }
 
   private rackColors(): Map<number, string> {
@@ -470,18 +473,23 @@ export class Lanes extends ex.Scene {
     this.phase = 'over';
     this.sfx.fanfare(1);
     this.burstConfetti(120);
-    this.hud.showShop(run, reward, () => {
-      run.nextStage();
-      this.frame = 0;
-      this.ballInFrame = 0;
-      this.standingBefore = this.sim.rackSize;
-      this.sim.clearDeadwood();
-      this.sim.resetRack();
-      this.applySpecials();
-      this.rackDrop = 0;
-      this.startStage();
-      this.returnBall();
-    }, () => this.sfx.chime());
+    this.hud.showShop(
+      run,
+      reward,
+      () => {
+        run.nextStage();
+        this.frame = 0;
+        this.ballInFrame = 0;
+        this.standingBefore = this.sim.rackSize;
+        this.sim.clearDeadwood();
+        this.sim.resetRack();
+        this.applySpecials();
+        this.rackDrop = 0;
+        this.startStage();
+        this.returnBall();
+      },
+      () => this.sfx.chime(),
+    );
   }
 
   private runOver(victory: boolean): void {
@@ -500,7 +508,13 @@ export class Lanes extends ex.Scene {
       this.sfx.womp();
     }
     this.hud.hideThrow();
-    this.hud.showRunOver(run, victory, newBest, () => this.newGameSame(), () => this.openMenu());
+    this.hud.showRunOver(
+      run,
+      victory,
+      newBest,
+      () => this.newGameSame(),
+      () => this.openMenu(),
+    );
   }
 
   private beginAim(): void {
@@ -557,7 +571,15 @@ export class Lanes extends ex.Scene {
     }
     if (this.gesture) return;
     const s = { x: pos.x, y: pos.y, t: performance.now() / 1000 };
-    this.gesture = { id, samples: [s], startX: pos.x, ballX0: this.sim.ball.x, mode: 'position', lowestIdx: 0, frozen: false };
+    this.gesture = {
+      id,
+      samples: [s],
+      startX: pos.x,
+      ballX0: this.sim.ball.x,
+      mode: 'position',
+      lowestIdx: 0,
+      frozen: false,
+    };
     this.fingerTrail = [s];
     this.fingerFade = 1;
     this.hud.setBoardNumber(boardAt(this.sim.ball.x));
@@ -695,7 +717,12 @@ export class Lanes extends ex.Scene {
       } else if (fullRack && knocked === 9) {
         this.hud.banner('9 PINS', `So close! The ${standing[0]}-pin held on`, 'plain', 1300);
       } else {
-        this.hud.banner(`${knocked} PIN${knocked === 1 ? '' : 'S'}`, fullRack ? 'Good leave for a spare' : 'Open frame', 'plain', 1200);
+        this.hud.banner(
+          `${knocked} PIN${knocked === 1 ? '' : 'S'}`,
+          fullRack ? 'Good leave for a spare' : 'Open frame',
+          'plain',
+          1200,
+        );
       }
     }
 
@@ -1023,7 +1050,8 @@ export class Lanes extends ex.Scene {
 
     // Particles: flames off burning pins and a Fireball, then everything ages.
     for (const p of this.sim.pins) {
-      if (p.burning && (p.state === 'down' || p.state === 'standing') && Math.random() < 0.6) this.fx.pinFlame(p.x, p.y);
+      if (p.burning && (p.state === 'down' || p.state === 'standing') && Math.random() < 0.6)
+        this.fx.pinFlame(p.x, p.y);
     }
     const b0 = this.sim.ball;
     if (this.sim.powers.fire && b0.rolling && !b0.inPit) {
@@ -1206,14 +1234,26 @@ export class Lanes extends ex.Scene {
     if (rolling && this.sim.powers.magnet) {
       for (let i = 0; i < 3; i++) {
         const k = (now * 1.6 + i / 3) % 1;
-        ctx.drawCircle(ex.vec(b.x, b.y), this.sim.ballR + 20 + k * 80, ex.Color.Transparent, ex.Color.fromRGB(255, 94, 196, 0.5 * (1 - k)), 2);
+        ctx.drawCircle(
+          ex.vec(b.x, b.y),
+          this.sim.ballR + 20 + k * 80,
+          ex.Color.Transparent,
+          ex.Color.fromRGB(255, 94, 196, 0.5 * (1 - k)),
+          2,
+        );
       }
     }
 
     // Midas Ball: a golden halo.
     if (rolling && this.ballPowers.includes('midas')) {
       const pulse = 1 + 0.08 * Math.sin(now * 8);
-      ctx.drawCircle(ex.vec(b.x, b.y), this.sim.ballR * 1.45 * pulse, ex.Color.fromRGB(255, 207, 51, 0.18), ex.Color.fromRGB(255, 230, 140, 0.8), 3);
+      ctx.drawCircle(
+        ex.vec(b.x, b.y),
+        this.sim.ballR * 1.45 * pulse,
+        ex.Color.fromRGB(255, 207, 51, 0.18),
+        ex.Color.fromRGB(255, 230, 140, 0.8),
+        3,
+      );
     }
 
     // Black Hole: a dark core with arms spiralling in.
@@ -1271,7 +1311,12 @@ export class Lanes extends ex.Scene {
       const b = this.trail[i];
       const k = i / this.trail.length;
       const tc = this.sim.powers.fire ? [255, 120, 40] : this.sim.powers.homing ? [180, 124, 255] : [56, 243, 255];
-      ctx.drawLine(ex.vec(a.x, a.y), ex.vec(b.x, b.y), ex.Color.fromRGB(tc[0], tc[1], tc[2], 0.16 * k), this.sim.ballR * 2 * (0.4 + 0.6 * k));
+      ctx.drawLine(
+        ex.vec(a.x, a.y),
+        ex.vec(b.x, b.y),
+        ex.Color.fromRGB(tc[0], tc[1], tc[2], 0.16 * k),
+        this.sim.ballR * 2 * (0.4 + 0.6 * k),
+      );
       ctx.drawLine(ex.vec(a.x, a.y), ex.vec(b.x, b.y), ex.Color.fromRGB(255, 255, 255, 0.35 * k), 4 * k);
     }
 
@@ -1312,4 +1357,3 @@ export class Lanes extends ex.Scene {
     ctx.restore();
   }
 }
-

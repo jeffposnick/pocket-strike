@@ -39,7 +39,16 @@ await page.addInitScript(() => {
   navigator.getGamepads = () => (pad.connected ? [pad as unknown as Gamepad] : []);
 });
 const pad = (fn: string) => page.evaluate(`(() => { const p = window.__pad; ${fn} })()`);
-const frames = (n: number) => page.evaluate((k: number) => new Promise<void>((r) => { let i = 0; const f = () => (++i >= k ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); }), n);
+const frames = (n: number) =>
+  page.evaluate(
+    (k: number) =>
+      new Promise<void>((r) => {
+        let i = 0;
+        const f = () => (++i >= k ? r() : requestAnimationFrame(f));
+        requestAnimationFrame(f);
+      }),
+    n,
+  );
 const press = async (i: number) => {
   await pad(`p.buttons[${i}].pressed = true;`);
   await frames(3);
@@ -61,7 +70,10 @@ for (let i = 0; i < 12 && !reached; i++) {
   reached = await page.evaluate(() => document.activeElement?.id === 'play');
 }
 check(reached, 'd-pad moves focus through the menu');
-check(await page.evaluate(() => document.body.classList.contains('pad-nav')), 'focus ring shows for controller navigation');
+check(
+  await page.evaluate(() => document.body.classList.contains('pad-nav')),
+  'focus ring shows for controller navigation',
+);
 await press(0);
 await page.waitForFunction(() => (window as unknown as { lanes: { phase: string } }).lanes.phase === 'aim');
 check(true, 'confirm button starts the game');
@@ -88,12 +100,20 @@ check((await lanes<string>('phase')) === 'roll', `pull back and push bowls (phas
 await pad('p.axes[3] = 0;');
 
 // Skip ahead with confirm once the result is in, then open the menu.
-await page.waitForFunction(() => (window as unknown as { lanes: { phase: string } }).lanes.phase === 'result', null, { timeout: 30000 });
+await page.waitForFunction(() => (window as unknown as { lanes: { phase: string } }).lanes.phase === 'result', null, {
+  timeout: 30000,
+});
 await frames(30);
 await press(0);
-await page.waitForFunction(() => ['return', 'sweep', 'aim'].includes((window as unknown as { lanes: { phase: string } }).lanes.phase), null, { timeout: 5000 });
+await page.waitForFunction(
+  () => ['return', 'sweep', 'aim'].includes((window as unknown as { lanes: { phase: string } }).lanes.phase),
+  null,
+  { timeout: 5000 },
+);
 check(true, 'confirm skips the result');
-await page.waitForFunction(() => (window as unknown as { lanes: { phase: string } }).lanes.phase === 'aim', null, { timeout: 30000 });
+await page.waitForFunction(() => (window as unknown as { lanes: { phase: string } }).lanes.phase === 'aim', null, {
+  timeout: 30000,
+});
 await press(9);
 check(await page.isVisible('#menu[open]'), 'menu button opens the menu');
 

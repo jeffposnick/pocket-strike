@@ -28,29 +28,29 @@ Everything here lives in `src/sim.ts` and `src/constants.ts`. The numbers come f
 
 ## Rack layouts (`RackLayout`)
 
-| | Classic | Mega Rack (Neon Run) |
-| --- | --- | --- |
-| Rows / pins | 4 / 10 | 10 / 55 |
-| Spacing | 86 | 42 |
-| Pin scale, mass | 1, 1 | 0.75, 1 |
-| fallScale | 1 | 0.38 |
-| Lane half-width | 150 | 230 |
-| Bomb radius | 165 | 140 |
-| Fire boost | 7 | 3 |
-| Mega Ball scale | 1.8 | 1.7 |
-| Chain zaps | 3 | 8 |
-| Homing line | ±24 | ±80 |
+|                 | Classic | Mega Rack (Neon Run) |
+| --------------- | ------- | -------------------- |
+| Rows / pins     | 4 / 10  | 10 / 55              |
+| Spacing         | 86      | 42                   |
+| Pin scale, mass | 1, 1    | 0.75, 1              |
+| fallScale       | 1       | 0.38                 |
+| Lane half-width | 150     | 230                  |
+| Bomb radius     | 165     | 140                  |
+| Fire boost      | 7       | 3                    |
+| Mega Ball scale | 1.8     | 1.7                  |
+| Chain zaps      | 3       | 8                    |
+| Homing line     | ±24     | ±80                  |
 
 ## Tuning results (latest)
 
 ### Classic, from `npm run sim:pinfall`
 
-| Shot | Pins down (avg) | Strike rate |
-| --- | --- | --- |
-| Pocket, straight | 9.2–9.5 | 35–55% |
-| Pocket, hooked in | about 9.6 | 55–70% |
-| Head-on (x = 0) | about 8 | 0–13%; leaves splits |
-| Wide (x = 45) | about 7.5 | 0% |
+| Shot              | Pins down (avg) | Strike rate          |
+| ----------------- | --------------- | -------------------- |
+| Pocket, straight  | 9.2–9.5         | 35–55%               |
+| Pocket, hooked in | about 9.6       | 55–70%               |
+| Head-on (x = 0)   | about 8         | 0–13%; leaves splits |
+| Wide (x = 45)     | about 7.5       | 0%                   |
 
 Early versions struck 60–70% of the time anywhere within ±25 px of centre. Raising `fallDv`
 from 150 to 220 and friction from 1.5 to 2.2 fixed that.
@@ -62,29 +62,30 @@ from 150 to 220 and friction from 1.5 to 2.2 fixed that.
 - **Power-ups** (average pins down of 55, from `npm run sim:pinfall`'s method: a bad edge shot from
   x = −150 and the best line x = 80; no power-up gets about 26 and 46):
 
-  | Power-up | Rarity | Edge shot | Best line |
-  | --- | --- | --- | --- |
-  | Fireball | common | 43 | 54.6 (75% clear) |
-  | Bomb | common | 49.5 | 52 |
-  | Chain Lightning | common | 43 | 52.4 |
-  | Mega Ball | common | 43 | 52.6 |
-  | Homing | common | 48 | 47 |
-  | Magnet | common | 43.6 | 53.5 (31% clear) |
-  | Snowball | common | 27 | 50.4 |
-  | Ricochet | common | 36 | 48.3 |
-  | Pin Laser | rare | 42 | 53.1 |
-  | Black Hole | rare | 49 | 54 |
-  | Earthquake | legendary | 52 | 54.3 (38% clear) |
+  | Power-up        | Rarity    | Edge shot | Best line        |
+  | --------------- | --------- | --------- | ---------------- |
+  | Fireball        | common    | 43        | 54.6 (75% clear) |
+  | Bomb            | common    | 49.5      | 52               |
+  | Chain Lightning | common    | 43        | 52.4             |
+  | Mega Ball       | common    | 43        | 52.6             |
+  | Homing          | common    | 48        | 47               |
+  | Magnet          | common    | 43.6      | 53.5 (31% clear) |
+  | Snowball        | common    | 27        | 50.4             |
+  | Ricochet        | common    | 36        | 48.3             |
+  | Pin Laser       | rare      | 42        | 53.1             |
+  | Black Hole      | rare      | 49        | 54               |
+  | Earthquake      | legendary | 52        | 54.3 (38% clear) |
 
   Snowball and Ricochet are deliberately line-dependent: they reward accuracy rather than rescue a
   bad shot. Double Down, Encore and Midas Ball don't touch the physics.
-  - The first Magnet pulled standing pins into the ball's path; they bunched up and fell *less*
+  - The first Magnet pulled standing pins into the ball's path; they bunched up and fell _less_
     (41 on the best line). Pulling the falling pins into the standing ones works, but its first
     tuning cleared the rack 94% of the time, so it was turned down.
   - The first Pin Laser knocked its column straight back, which removed the pins the ball would have
     cascaded through (19 from the edge, worse than nothing). Blowing them sideways fixed that.
   - The first Black Hole opened at the front pin, pulling the rack forward and out of the ball's
     path. It now opens in the middle of the standing pins.
+
 - **History:**
   - The first, tightly packed version (spacing 31, lane 300 wide) cascaded so much that aim barely mattered.
   - Bomb and Fire then cleared all 55 pins over 90% of the time, so power strengths became per-layout settings.
@@ -94,21 +95,21 @@ from 150 to 220 and friction from 1.5 to 2.2 fixed that.
 All of these are checked by `tools/sim/settle.ts` (part of `npm test`).
 
 1. **Ball rebounding into the gutter.**
-   - *Symptom:* in the dense Mega Rack, the ball could bounce back off the pins, leave the deck near
+   - _Symptom:_ in the dense Mega Rack, the ball could bounce back off the pins, leave the deck near
      the edge, drop into the gutter and roll back toward the bowler. The camera followed it and the
      result waited up to 10 s.
-   - *Fix:* after first contact, damp any backward ball motion (`vy > 0` decays at 14/s), add deck
+   - _Fix:_ after first contact, damp any backward ball motion (`vy > 0` decays at 14/s), add deck
      friction, never allow a gutter after contact (side walls apply instead), and settle at the
      latest 4.5 s after contact. The camera also locks onto the deck at first contact.
 2. **Jittering fallen pins.**
-   - *Symptom:* overlapping fallen pins pushed each other apart by the full overlap every substep,
+   - _Symptom:_ overlapping fallen pins pushed each other apart by the full overlap every substep,
      shoving neighbours back and forth indefinitely.
-   - *Fix:*
+   - _Fix:_
      - **Static friction:** a slow pin stops dead after 0.15 s.
      - **Sleeping:** a pin at rest sleeps. It acts as a fixed obstacle unless the relative contact speed exceeds 60.
      - **Soft overlap correction:** resolve 60% of the overlap, with 0.4 px of slop.
      - **Freeze:** the scene stops stepping physics once a roll has settled.
-   - *Result:* jitter went from 112 pins (worst 591 px) to about 1% of pins with sub-pixel motion.
+   - _Result:_ jitter went from 112 pins (worst 591 px) to about 1% of pins with sub-pixel motion.
 
 ## Things that are deliberately not realistic
 

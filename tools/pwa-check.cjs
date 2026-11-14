@@ -36,12 +36,17 @@ const check = (ok, msg) => {
   page.on('pageerror', (e) => errors.push(e.message));
 
   await page.goto(url);
-  await page.waitForFunction(() => navigator.serviceWorker.controller || navigator.serviceWorker.ready, null, { timeout: 15000 });
+  await page.waitForFunction(() => navigator.serviceWorker.controller || navigator.serviceWorker.ready, null, {
+    timeout: 15000,
+  });
   const cdp = await context.newCDPSession(page);
   const { installabilityErrors: installErrors = [] } = await cdp.send('Page.getInstallabilityErrors');
   check(installErrors.length === 0, `installable (${installErrors.map((e) => e.errorId).join(', ') || 'no errors'})`);
   const manifest = await cdp.send('Page.getAppManifest');
-  check(!manifest.errors?.length, `manifest parses cleanly${manifest.errors?.length ? ': ' + JSON.stringify(manifest.errors) : ''}`);
+  check(
+    !manifest.errors?.length,
+    `manifest parses cleanly${manifest.errors?.length ? ': ' + JSON.stringify(manifest.errors) : ''}`,
+  );
 
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(1000);
@@ -51,7 +56,9 @@ const check = (ok, msg) => {
   );
   await page.click('#play');
   await page.waitForFunction(
-    () => document.getElementById('pwaPill').matches(':popover-open') && document.getElementById('pwaText').textContent.includes('offline'),
+    () =>
+      document.getElementById('pwaPill').matches(':popover-open') &&
+      document.getElementById('pwaText').textContent.includes('offline'),
     null,
     { timeout: 20000 },
   );
@@ -99,7 +106,10 @@ const check = (ok, msg) => {
       await page.reload();
       await page.waitForSelector('#updateBtn', { state: 'visible', timeout: 30000 });
       const tagBefore = await page.textContent('.tag');
-      check(tagBefore.includes('pocket.'), 'new build detected: "Update" offered in the menu, old version keeps running until tapped');
+      check(
+        tagBefore.includes('pocket.'),
+        'new build detected: "Update" offered in the menu, old version keeps running until tapped',
+      );
       await Promise.all([page.waitForEvent('load', { timeout: 15000 }), page.click('#updateBtn')]);
       await page.waitForSelector('.tag');
       const tag = await page.textContent('.tag');

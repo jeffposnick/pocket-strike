@@ -132,11 +132,13 @@ export class Gamepads {
     const ms = Array.isArray(pattern) ? pattern.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0) : pattern;
     try {
       const gp = navigator.getGamepads?.()[this.lastIndex];
-      void gp?.vibrationActuator?.playEffect('dual-rumble', {
-        duration: Math.min(400, ms * 2),
-        strongMagnitude: Math.min(1, ms / 60),
-        weakMagnitude: 0.6,
-      }).catch(() => {});
+      void gp?.vibrationActuator
+        ?.playEffect('dual-rumble', {
+          duration: Math.min(400, ms * 2),
+          strongMagnitude: Math.min(1, ms / 60),
+          weakMagnitude: 0.6,
+        })
+        .catch(() => {});
     } catch {
       /* no rumble here */
     }

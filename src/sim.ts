@@ -38,7 +38,19 @@ export interface SimMods {
 }
 
 /** The power-ups that change the physics, active for the current roll. */
-export const SIM_POWERS = ['fire', 'bomb', 'chain', 'mega', 'homing', 'magnet', 'snowball', 'ricochet', 'blackhole', 'laser', 'quake'] as const;
+export const SIM_POWERS = [
+  'fire',
+  'bomb',
+  'chain',
+  'mega',
+  'homing',
+  'magnet',
+  'snowball',
+  'ricochet',
+  'blackhole',
+  'laser',
+  'quake',
+] as const;
 export type SimPower = (typeof SIM_POWERS)[number];
 export type ActivePowers = Record<SimPower, boolean>;
 
@@ -574,7 +586,16 @@ export class Sim {
       p.restT = 0;
       const ballRef: BodyRef = { x: b.x, y: b.y, vx: b.vx, vy: b.vy, av: 0, invM: 1 / this.ballMass, invI: 0 };
       const pinRef = this.pinRef(p);
-      const dv = resolve(ballRef, pinRef, c.x - (dx / d) * c.r, c.y - (dy / d) * c.r, dx / d, dy / d, min - d, TUNE.ballE);
+      const dv = resolve(
+        ballRef,
+        pinRef,
+        c.x - (dx / d) * c.r,
+        c.y - (dy / d) * c.r,
+        dx / d,
+        dy / d,
+        min - d,
+        TUNE.ballE,
+      );
       b.x = ballRef.x;
       b.y = ballRef.y;
       b.vx = ballRef.vx;
@@ -838,7 +859,6 @@ export class Sim {
     }
   }
 }
-
 
 /**
  * Impulse resolution between two rigid bodies at contact point (px, py) with

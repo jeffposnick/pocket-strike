@@ -17,7 +17,9 @@ function ok(cond: boolean, label: string): void {
 }
 const near = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol;
 const fmt = (r: SwingThrow | null) =>
-  r ? `power ${r.power.toFixed(2)} angle ${r.angle.toFixed(3)} spin ${r.spin.toFixed(2)} peak ${r.peak.toFixed(0)} arc ${r.arc.toFixed(0)} twist ${r.twist.toFixed(0)}` : 'null';
+  r
+    ? `power ${r.power.toFixed(2)} angle ${r.angle.toFixed(3)} spin ${r.spin.toFixed(2)} peak ${r.peak.toFixed(0)} arc ${r.arc.toFixed(0)} twist ${r.twist.toFixed(0)}`
+    : 'null';
 
 function bowl(spec: SwingSpec): SwingThrow | null {
   const s = synthSwing(spec);
@@ -39,7 +41,10 @@ function bowl(spec: SwingSpec): SwingThrow | null {
 // Faster swings make faster balls.
 {
   const powers = [0.7, 0.5, 0.4, 0.3, 0.22].map((fwdTime) => bowl({ fwdTime })?.power ?? -1);
-  ok(powers.every((p, i) => i === 0 || p >= powers[i - 1]), `power rises with swing speed (${powers.map((p) => p.toFixed(2)).join(' ')})`);
+  ok(
+    powers.every((p, i) => i === 0 || p >= powers[i - 1]),
+    `power rises with swing speed (${powers.map((p) => p.toFixed(2)).join(' ')})`,
+  );
   ok(powers[0] < 0.25 && powers[4] > 0.95, 'slow swing is slow, fast swing is full power');
 }
 
@@ -50,7 +55,10 @@ function bowl(spec: SwingSpec): SwingThrow | null {
   ok(!!left && near(left.spin, -60 / SWING.twistFull, 0.08), `twist +60 → hook left (${fmt(left)})`);
   ok(!!right && near(right.spin, 60 / SWING.twistFull, 0.08), `twist -60 → hook right (${fmt(right)})`);
   const fast = bowl({ twist: 90, fwdTime: 0.25 });
-  ok(!!fast && fast.spin < -0.95 && Math.abs(fast.angle) < 0.02, `a hard twist stays hook, not launch angle (${fmt(fast)})`);
+  ok(
+    !!fast && fast.spin < -0.95 && Math.abs(fast.angle) < 0.02,
+    `a hard twist stays hook, not launch angle (${fmt(fast)})`,
+  );
   const small = bowl({ twist: 6 });
   ok(!!small && small.spin === 0, `small twist is in the dead zone (${fmt(small)})`);
 }
@@ -77,7 +85,12 @@ function bowl(spec: SwingSpec): SwingThrow | null {
       ok(false, `grip ${i}: no throw`);
       continue;
     }
-    worst = Math.max(worst, Math.abs(g.power - base.power), Math.abs(g.spin - base.spin), Math.abs(g.angle - base.angle) * 10);
+    worst = Math.max(
+      worst,
+      Math.abs(g.power - base.power),
+      Math.abs(g.spin - base.spin),
+      Math.abs(g.angle - base.angle) * 10,
+    );
   }
   ok(worst < 0.02, `40 random grips agree (worst difference ${worst.toFixed(4)})`);
 }

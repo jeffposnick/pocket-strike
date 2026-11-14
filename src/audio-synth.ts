@@ -181,7 +181,11 @@ function panelHit(sr: number): Float32Array {
 function thud(sr: number): Float32Array {
   const drop = dropper(sr, rnd(40, 50), 70, 0.05);
   const lp = lowpass(380, sr);
-  return render(sr, 0.45, (t) => drop() * Math.exp(-t / 0.13) * Math.min(1, t / 0.003) + 2.5 * lp(noise()) * Math.exp(-t / 0.035));
+  return render(
+    sr,
+    0.45,
+    (t) => drop() * Math.exp(-t / 0.13) * Math.min(1, t / 0.003) + 2.5 * lp(noise()) * Math.exp(-t / 0.035),
+  );
 }
 
 /** The ball drops into the gutter: a hollow ring from the channel over a thud. */
@@ -195,7 +199,11 @@ function gutterDrop(sr: number): Float32Array {
   const ph = phasesFor(m);
   const drop = dropper(sr, 50, 60, 0.05);
   const lp = lowpass(600, sr);
-  return render(sr, 0.8, (t) => 0.6 * modes(m, t, ph, 0.002) + 0.9 * drop() * Math.exp(-t / 0.12) + 1.5 * lp(noise()) * Math.exp(-t / 0.03));
+  return render(
+    sr,
+    0.8,
+    (t) => 0.6 * modes(m, t, ph, 0.002) + 0.9 * drop() * Math.exp(-t / 0.12) + 1.5 * lp(noise()) * Math.exp(-t / 0.03),
+  );
 }
 
 /**
@@ -296,7 +304,9 @@ function boomSound(sr: number): Float32Array {
 /** A soft major-ninth chord that swells and fades: the bed under the strike fanfare. */
 function padSound(sr: number): Float32Array {
   const freqs = [NOTE.C5 / 2, NOTE.G4, NOTE.E5, NOTE.B5, NOTE.D6];
-  const voices = freqs.flatMap((f) => [-6, 0, 6].map((cents) => ({ f: f * Math.pow(2, cents / 1200), ph: random() * TAU })));
+  const voices = freqs.flatMap((f) =>
+    [-6, 0, 6].map((cents) => ({ f: f * Math.pow(2, cents / 1200), ph: random() * TAU })),
+  );
   return render(
     sr,
     2.4,

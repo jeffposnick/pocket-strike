@@ -25,12 +25,12 @@ between them, on a lane about 50% wider than regulation. The camera zooms out sl
 The best line is about two-thirds of the way out from the centre; edge shots leave plenty standing. Score enough points on each lane to move on. Points are **pins × mult**:
 2 per pin, +10 per special pin. First-ball tiers add mult:
 
-| Tier | Pins down | Mult |
-| --- | --- | --- |
-| Nice Hit | 80%+ (44+) | +0.5 |
-| Big Hit | 90%+ (50+) | +1 |
-| MEGA STRIKE | all 55 | +3 |
-| Spare | clear the rest on ball 2 | +1 |
+| Tier        | Pins down                | Mult |
+| ----------- | ------------------------ | ---- |
+| Nice Hit    | 80%+ (44+)               | +0.5 |
+| Big Hit     | 90%+ (50+)               | +1   |
+| MEGA STRIKE | all 55                   | +3   |
+| Spare       | clear the rest on ball 2 | +1   |
 
 - **Special pins** glow in the rack (and on the rack diagram). Knock one down to bank it:
   - 🔥 **Fireball**: plows through; burning pins topple anything they touch
@@ -77,14 +77,14 @@ npm run sim:balance   # Neon Run win rates by skill (tuning)
 
 Requires Node 22.18+.
 
-| File | What it does |
-| --- | --- |
-| `src/sim.ts` | Ball + pin physics, independent of rendering (runnable in Node for tuning) |
-| `src/lanes.ts` | The game scene: gestures, turn flow, camera, effects |
-| `src/art.ts` | All procedural artwork: lane tiles, pins, ball |
-| `src/scoring.ts` | Ten-pin scoring and split detection |
-| `src/run.ts` | Roguelike run: stages, perks, power-ups, points, shop offers |
-| `src/audio.ts` | Web Audio sound effects |
-| `src/hud.ts` | HTML overlay: scoreboard, rack diagram, banners, menus |
-| `src/constants.ts` | Lane geometry, rack layouts and tuning |
-| `tools/sim/` | Headless simulations and tests (run directly with Node) |
+| File               | What it does                                                               |
+| ------------------ | -------------------------------------------------------------------------- |
+| `src/sim.ts`       | Ball + pin physics, independent of rendering (runnable in Node for tuning) |
+| `src/lanes.ts`     | The game scene: gestures, turn flow, camera, effects                       |
+| `src/art.ts`       | All procedural artwork: lane tiles, pins, ball                             |
+| `src/scoring.ts`   | Ten-pin scoring and split detection                                        |
+| `src/run.ts`       | Roguelike run: stages, perks, power-ups, points, shop offers               |
+| `src/audio.ts`     | Web Audio sound effects                                                    |
+| `src/hud.ts`       | HTML overlay: scoreboard, rack diagram, banners, menus                     |
+| `src/constants.ts` | Lane geometry, rack layouts and tuning                                     |
+| `tools/sim/`       | Headless simulations and tests (run directly with Node)                    |

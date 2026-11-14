@@ -105,9 +105,7 @@ export const PIN_SPOTS = rackSpots(CLASSIC_RACK);
 /** Speed range shown to the player, mph. */
 export const MPH_MIN = 12;
 export const MPH_MAX = 22;
-export const speedToMph = (s: number) =>
-  MPH_MIN + ((s - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * (MPH_MAX - MPH_MIN);
+export const speedToMph = (s: number) => MPH_MIN + ((s - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * (MPH_MAX - MPH_MIN);
 
 /** Board number counted from the right edge, the way right-handed bowlers count. */
-export const boardAt = (x: number) =>
-  Math.max(1, Math.min(BOARDS, Math.round((LANE_HALF - x) / BOARD_W + 0.5)));
+export const boardAt = (x: number) => Math.max(1, Math.min(BOARDS, Math.round((LANE_HALF - x) / BOARD_W + 0.5)));

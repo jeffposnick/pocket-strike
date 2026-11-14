@@ -38,9 +38,27 @@ export default defineConfig({
           { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         screenshots: [
-          { src: 'screenshots/menu.png', sizes: '780x1688', type: 'image/png', form_factor: 'narrow', label: 'Pick a ball and a mode' },
-          { src: 'screenshots/strike.png', sizes: '780x1688', type: 'image/png', form_factor: 'narrow', label: 'Strike!' },
-          { src: 'screenshots/neon-run.png', sizes: '780x1688', type: 'image/png', form_factor: 'narrow', label: 'Neon Run: 55 pins and power-ups' },
+          {
+            src: 'screenshots/menu.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Pick a ball and a mode',
+          },
+          {
+            src: 'screenshots/strike.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Strike!',
+          },
+          {
+            src: 'screenshots/neon-run.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Neon Run: 55 pins and power-ups',
+          },
         ],
       },
       injectManifest: {

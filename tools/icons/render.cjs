@@ -24,7 +24,10 @@ const targets = [
     if (artScale !== 1) {
       const off = (512 * (1 - artScale)) / 2;
       src = src
-        .replace('<!-- Neon lane lines -->', `<g transform="translate(${off} ${off}) scale(${artScale})"><!-- Neon lane lines -->`)
+        .replace(
+          '<!-- Neon lane lines -->',
+          `<g transform="translate(${off} ${off}) scale(${artScale})"><!-- Neon lane lines -->`,
+        )
         .replace('</svg>', '</g></svg>');
     }
     const inner = src.replace('<svg ', `<svg width="${size * scale}" height="${size * scale}" `);

@@ -14,7 +14,8 @@ function ok(cond: boolean, label: string): void {
     console.log(`FAIL  ${label}`);
   }
 }
-const fmt = (t: Throw | null | undefined) => (t ? `speed ${t.speed.toFixed(0)} angle ${t.angle.toFixed(3)} spin ${t.spin.toFixed(2)}` : String(t));
+const fmt = (t: Throw | null | undefined) =>
+  t ? `speed ${t.speed.toFixed(0)} angle ${t.angle.toFixed(3)} spin ${t.spin.toFixed(2)}` : String(t);
 
 /** A finger stroke: `dy` px up the screen over `ms`, bowing `bow` px sideways at its middle. */
 function stroke(dy: number, ms: number, bow = 0, dx = 0, hz = 60): StrokePoint[] {
@@ -35,7 +36,10 @@ function stroke(dy: number, ms: number, bow = 0, dx = 0, hz = 60): StrokePoint[]
   ok(flickThrow(stroke(150, 600)) === null, 'a gentle slide is not a throw');
   const right = flickThrow(stroke(260, 100, 40));
   const left = flickThrow(stroke(260, 100, -40));
-  ok(!!right && !!left && right.spin === -left.spin && right.spin !== 0, `curving either way hooks opposite ways (${fmt(right)} / ${fmt(left)})`);
+  ok(
+    !!right && !!left && right.spin === -left.spin && right.spin !== 0,
+    `curving either way hooks opposite ways (${fmt(right)} / ${fmt(left)})`,
+  );
   const diag = flickThrow(stroke(260, 100, 0, 60));
   ok(!!diag && diag.angle > 0 && diag.spin === 0, `a diagonal flick angles without hook (${fmt(diag)})`);
 }
@@ -54,10 +58,17 @@ const thrown = (r: StickResult[]) => r.filter((x) => x.thrown !== undefined).map
 
 // Stick: pull back, push forward.
 {
-  const fast = thrown(drive([...hold(0, 0, 5), ...sweep([0, 0], [0, 1], 8), ...sweep([0, 1], [0, -1], 2), ...hold(0, -1, 5)]));
-  const slow = thrown(drive([...hold(0, 0, 5), ...sweep([0, 0], [0, 1], 8), ...sweep([0, 1], [0, -1], 6), ...hold(0, -1, 5)]));
+  const fast = thrown(
+    drive([...hold(0, 0, 5), ...sweep([0, 0], [0, 1], 8), ...sweep([0, 1], [0, -1], 2), ...hold(0, -1, 5)]),
+  );
+  const slow = thrown(
+    drive([...hold(0, 0, 5), ...sweep([0, 0], [0, 1], 8), ...sweep([0, 1], [0, -1], 6), ...hold(0, -1, 5)]),
+  );
   ok(fast.length === 1 && !!fast[0], `pull back and push: one throw (${fmt(fast[0])})`);
-  ok(slow.length === 1 && !!slow[0] && !!fast[0] && slow[0].speed < fast[0].speed, `slower push, slower ball (${fmt(slow[0])})`);
+  ok(
+    slow.length === 1 && !!slow[0] && !!fast[0] && slow[0].speed < fast[0].speed,
+    `slower push, slower ball (${fmt(slow[0])})`,
+  );
   const crawl = thrown(drive([...sweep([0, 0], [0, 1], 8), ...sweep([0, 1], [0, -1], 40)]));
   ok(crawl.length === 1 && crawl[0] === null, 'a very slow push is too gentle to throw');
   const curved = thrown(drive([...sweep([0, 0], [0, 1], 8), ...sweep([0, 1], [0, -1], 4, 0.6)]));
@@ -71,11 +82,23 @@ const thrown = (r: StickResult[]) => r.filter((x) => x.thrown !== undefined).map
   ok(thrown(drive(sweep([0, 0], [0, -1], 3))).length === 0, 'pushing forward without pulling back first does nothing');
   const cancelled = drive([...sweep([0, 0], [0, 1], 6), ...hold(0, 0, 30), ...sweep([0, 0], [0, -1], 3)]);
   ok(thrown(cancelled).length === 0, 'pull back, let the stick centre for a while, then push: no throw');
-  const twice = drive([...sweep([0, 0], [0, 1], 6), ...sweep([0, 1], [0, -1], 2), ...hold(0, -1, 10), ...sweep([0, -1], [0, 1], 3), ...sweep([0, 1], [0, -1], 2)]);
+  const twice = drive([
+    ...sweep([0, 0], [0, 1], 6),
+    ...sweep([0, 1], [0, -1], 2),
+    ...hold(0, -1, 10),
+    ...sweep([0, -1], [0, 1], 3),
+    ...sweep([0, 1], [0, -1], 2),
+  ]);
   ok(thrown(twice).length === 1, 'no second throw until the stick returns to the centre');
   const aim = drive(hold(0.8, 0.1, 3));
-  ok(aim.every((r) => r.aim > 0.6 && !r.swinging), 'sideways lines up');
-  ok(drive(hold(0.1, 0.05, 3)).every((r) => r.aim === 0), 'inside the dead zone nothing moves');
+  ok(
+    aim.every((r) => r.aim > 0.6 && !r.swinging),
+    'sideways lines up',
+  );
+  ok(
+    drive(hold(0.1, 0.05, 3)).every((r) => r.aim === 0),
+    'inside the dead zone nothing moves',
+  );
   const mid = drive(sweep([0, 0], [0, 1], 6));
   ok(mid[mid.length - 1].swinging && mid[mid.length - 1].aim === 0, 'pulled back: swinging, not lining up');
   ok(STICK.back > 0 && STICK.forward < 0, 'stick thresholds point the right way');

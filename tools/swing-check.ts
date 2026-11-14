@@ -30,7 +30,10 @@ const browser = await chromium.launch();
   await page.waitForSelector('#menu[open]');
   await page.click('#swingToggle');
   await page.waitForSelector('#swingNote:not([hidden])', { timeout: 5000 });
-  check(!(await page.isChecked('#swing')), `blocked motion access turns the switch back off: "${await page.textContent('#swingNote')}"`);
+  check(
+    !(await page.isChecked('#swing')),
+    `blocked motion access turns the switch back off: "${await page.textContent('#swingNote')}"`,
+  );
   await context.close();
 }
 
@@ -57,13 +60,21 @@ await page.addInitScript(() => {
 });
 
 const play = async (samples: MotionSample[]) => {
-  await page.evaluate((q: number[][]) => {
-    (window as unknown as { __queue: number[][] }).__queue.push(...q);
-  }, samples.map((s) => [s.ax, s.ay, s.az, s.rx, s.ry, s.rz]));
-  await page.waitForFunction(() => (window as unknown as { __queue: number[][] }).__queue.length === 0, null, { timeout: 10000 });
+  await page.evaluate(
+    (q: number[][]) => {
+      (window as unknown as { __queue: number[][] }).__queue.push(...q);
+    },
+    samples.map((s) => [s.ax, s.ay, s.az, s.rx, s.ry, s.rz]),
+  );
+  await page.waitForFunction(() => (window as unknown as { __queue: number[][] }).__queue.length === 0, null, {
+    timeout: 10000,
+  });
 };
 const phase = () => page.evaluate(() => (window as unknown as { lanes: { phase: string } }).lanes.phase);
-const waitAim = () => page.waitForFunction(() => (window as unknown as { lanes: { phase: string } }).lanes.phase === 'aim', null, { timeout: 30000 });
+const waitAim = () =>
+  page.waitForFunction(() => (window as unknown as { lanes: { phase: string } }).lanes.phase === 'aim', null, {
+    timeout: 30000,
+  });
 
 await page.goto(url);
 await page.waitForSelector('#menu[open]');

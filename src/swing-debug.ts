@@ -18,10 +18,13 @@ export function swingDebug(motion: Motion): void {
   text.textContent = 'Swing debug: waiting for a release';
   const save = document.createElement('button');
   save.textContent = 'Save last swing';
-  save.style.cssText = 'pointer-events:auto;margin-top:6px;padding:4px 10px;border-radius:8px;border:1px solid #38f3ff;background:none;color:#38f3ff';
+  save.style.cssText =
+    'pointer-events:auto;margin-top:6px;padding:4px 10px;border-radius:8px;border:1px solid #38f3ff;background:none;color:#38f3ff';
   save.onclick = () => {
     if (!motion.last) return;
-    const blob = new Blob([JSON.stringify({ ...motion.last, userAgent: navigator.userAgent, tuning: SWING })], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ ...motion.last, userAgent: navigator.userAgent, tuning: SWING })], {
+      type: 'application/json',
+    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `swing-${Date.now()}.json`;
@@ -53,7 +56,9 @@ export function swingDebug(motion: Motion): void {
     if (motion.last && motion.last !== shown) {
       shown = motion.last;
       const r = motion.last.result;
-      const hz = motion.last.samples.length / Math.max(0.001, (motion.last.samples.at(-1)?.t ?? 0) - (motion.last.samples[0]?.t ?? 0));
+      const hz =
+        motion.last.samples.length /
+        Math.max(0.001, (motion.last.samples.at(-1)?.t ?? 0) - (motion.last.samples[0]?.t ?? 0));
       text.textContent = r
         ? `power ${r.power.toFixed(2)} · angle ${r.angle.toFixed(3)} · spin ${r.spin.toFixed(2)} | peak ${r.peak.toFixed(0)}°/s · arc ${r.arc.toFixed(0)}° · twist ${r.twist.toFixed(0)}° · side ${r.side.toFixed(0)}° · ${hz.toFixed(0)} Hz`
         : `no throw (${motion.last.samples.length} samples, ${hz.toFixed(0)} Hz)`;

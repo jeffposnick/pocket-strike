@@ -2,15 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0c0a1f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Pocket Strike</title>
-    <meta name="description" content="Neon 2D bowling for your phone: flick to bowl, curve to hook, and take on the 55-pin Neon Run." />
+    <meta
+      name="description"
+      content="Neon 2D bowling for your phone: flick to bowl, curve to hook, and take on the 55-pin Neon Run."
+    />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -27,7 +27,10 @@
           <div id="board" role="group" aria-label="Scoreboard"></div>
           <div id="runbar">
             <div class="rtop"><span id="stageName">Stage 1</span><span id="coins">🪙 0</span></div>
-            <div class="prog"><div id="progFill"></div><span id="progText">0 / 160</span></div>
+            <div class="prog">
+              <div id="progFill"></div>
+              <span id="progText">0 / 160</span>
+            </div>
             <div class="rbot"><span id="frameDots"></span><span id="perkRow"></span></div>
           </div>
           <div class="row">
@@ -75,14 +78,22 @@
         <button id="playRun" class="cta">Neon Run</button>
         <p class="modeNote">Roguelike: 6 lanes, power-up pins, perks and boss lanes.</p>
         <button id="play" class="ghost">Classic 10 frames</button>
-        <label class="toggle"><input type="checkbox" id="bumpers" switch role="switch" /><span></span>Bumpers in Classic</label>
-        <label class="toggle" id="swingToggle" hidden><input type="checkbox" id="swing" switch role="switch" aria-describedby="swingNote" /><span></span>Swing phone to bowl</label>
+        <label class="toggle"
+          ><input type="checkbox" id="bumpers" switch role="switch" /><span></span>Bumpers in Classic</label
+        >
+        <label class="toggle" id="swingToggle" hidden
+          ><input type="checkbox" id="swing" switch role="switch" aria-describedby="swingNote" /><span></span>Swing
+          phone to bowl</label
+        >
         <p id="swingNote" class="swingNote" hidden></p>
         <ul class="how">
           <li><b>Slide</b> your finger sideways to line up the ball.</li>
           <li><b>Flick up</b>: a faster flick means a faster ball.</li>
           <li><b>Curve</b> the flick to add hook. Aim between the 1 and 3 pins.</li>
-          <li id="padHow" hidden><b>Controller:</b> stick or d-pad to line up, then pull a stick back and push it forward to bowl. L, R, ZL and ZR (LB, RB, LT, RT) arm power-ups.</li>
+          <li id="padHow" hidden>
+            <b>Controller:</b> stick or d-pad to line up, then pull a stick back and push it forward to bowl. L, R, ZL
+            and ZR (LB, RB, LT, RT) arm power-ups.
+          </li>
         </ul>
         <div id="menuBest"></div>
         <button id="updateBtn" class="ghost install" hidden>Update to the new version</button>

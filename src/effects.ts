@@ -191,7 +191,13 @@ export class Effects {
   drawBelow(ctx: ex.ExcaliburGraphicsContext): void {
     for (const r of this.rings) {
       const k = r.t / RING_LIFE;
-      ctx.drawCircle(ex.vec(r.x, r.y), r.radius * (0.3 + 0.9 * k), ex.Color.fromRGB(255, 160, 60, 0.45 * (1 - k)), ex.Color.fromRGB(255, 240, 200, 1 - k), 6);
+      ctx.drawCircle(
+        ex.vec(r.x, r.y),
+        r.radius * (0.3 + 0.9 * k),
+        ex.Color.fromRGB(255, 160, 60, 0.45 * (1 - k)),
+        ex.Color.fromRGB(255, 240, 200, 1 - k),
+        6,
+      );
     }
     for (const f of this.flames) {
       const c = f.color.clone();
@@ -207,7 +213,12 @@ export class Effects {
       const top = PIT_Y - 60;
       const len = l.fromY - top;
       ctx.drawRectangle(ex.vec(l.x - l.width, top), l.width * 2, len, ex.Color.fromRGB(255, 59, 59, 0.22 * a));
-      ctx.drawRectangle(ex.vec(l.x - l.width * 0.25, top), l.width * 0.5, len, ex.Color.fromRGB(255, 220, 220, 0.85 * a));
+      ctx.drawRectangle(
+        ex.vec(l.x - l.width * 0.25, top),
+        l.width * 0.5,
+        len,
+        ex.Color.fromRGB(255, 220, 220, 0.85 * a),
+      );
     }
 
     for (const z of this.zaps) {

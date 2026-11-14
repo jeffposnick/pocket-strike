@@ -22,7 +22,9 @@ async function settle(page) {
 
 (async () => {
   const browser = await chromium.launch();
-  const page = await (await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })).newPage();
+  const page = await (
+    await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
+  ).newPage();
   await page.goto(url);
   await page.waitForFunction(() => window.lanes && document.fonts.status === 'loaded');
   await page.waitForTimeout(800);
@@ -41,7 +43,9 @@ async function settle(page) {
       l.throwBall(2300, 0, -0.55);
     });
     await settle(page);
-    const strike = await page.evaluate(() => /STRIKE|DOUBLE|TURKEY|BAGGER/.test(document.getElementById('bannerText').textContent));
+    const strike = await page.evaluate(() =>
+      /STRIKE|DOUBLE|TURKEY|BAGGER/.test(document.getElementById('bannerText').textContent),
+    );
     if (strike) {
       await page.waitForTimeout(700);
       await page.screenshot({ path: path.join(out, 'strike.png') });

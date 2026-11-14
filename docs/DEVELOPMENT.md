@@ -15,12 +15,12 @@ TypeScript-only runtime syntax such as enums and parameter properties (`erasable
 
 ## Checks
 
-| Command | What it does | Time |
-| --- | --- | --- |
-| `npm run typecheck` | TypeScript, strict mode | seconds |
-| `npm test` | Scoring, flick/stick, swing-detection and sound-rendering unit tests + physics regression checks (`tools/sim/settle.ts`) | seconds |
-| `npm run sim:pinfall` | Pinfall survey for both racks and every power-up | ~2–5 min |
-| `npm run sim:balance` | Neon Run win rates by skill level (`--runs 30`) | ~5–10 min |
+| Command               | What it does                                                                                                             | Time      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------- |
+| `npm run typecheck`   | TypeScript, strict mode                                                                                                  | seconds   |
+| `npm test`            | Scoring, flick/stick, swing-detection and sound-rendering unit tests + physics regression checks (`tools/sim/settle.ts`) | seconds   |
+| `npm run sim:pinfall` | Pinfall survey for both racks and every power-up                                                                         | ~2–5 min  |
+| `npm run sim:balance` | Neon Run win rates by skill level (`--runs 30`)                                                                          | ~5–10 min |
 
 Every test is deterministic: the physics checks seed each roll (`seeded()` in `tools/sim/helpers.ts`)
 and the swing tests seed their synthetic noise, so a run gives the same numbers every time and a
@@ -45,6 +45,7 @@ To play quickly in a script, throw whenever `l.phase === 'aim'` and skip the wai
 runtime, so `l.run`, `l.rolls` and `l.fx` can be read or set the same way.
 
 When automating with Playwright:
+
 - Emulate a phone (e.g. `devices['iPhone 13']`) with `deviceScaleFactor: 1`.
 - Headless Chromium renders in software, and above 200 ms per frame Excalibur's clock treats the
   frame as 1 ms, so the game crawls at high pixel densities.
@@ -172,22 +173,22 @@ as a fixed number and resized the Bungee display text).
 
 ## Where to change things
 
-| Goal | Place |
-| --- | --- |
-| Feel of throws (speed range, hook strength) | `MIN_SPEED`, `MAX_SPEED`, `HOOK` in `constants.ts`; flick maths in `flickThrow()` in `flick.ts` |
-| Feel of swing controls | `SWING` in `swing.ts` |
-| Feel of controller sticks | `STICK` in `flick.ts`; button mapping in `gamepad.ts` |
-| How easily pins fall | `TUNE` in `sim.ts`, `fallScale` per rack layout |
-| Rack shapes | `CLASSIC_RACK` / `MEGA_RACK` in `constants.ts` |
-| Stage targets, perks, power-up odds | `run.ts` |
-| Banners, scoreboard, shop | `hud.ts`, `index.html`, `style.css` |
-| Sparks, confetti, flames and other particles | `effects.ts` |
-| Classic frame/ball progression | `classicPosition` in `scoring.ts` |
-| Saved settings and records | `storage.ts` |
-| Sounds | how each sounds: `audio-synth.ts`; levels, panning, reverb, when they play: `audio.ts` |
-| Lane artwork | `paintLane` in `art.ts` |
-| App name, colours, icons in the manifest | `vite.config.ts` (`VitePWA({ manifest })`), `tools/icons/` |
-| Install / update prompts | `src/pwa.ts` |
+| Goal                                         | Place                                                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Feel of throws (speed range, hook strength)  | `MIN_SPEED`, `MAX_SPEED`, `HOOK` in `constants.ts`; flick maths in `flickThrow()` in `flick.ts` |
+| Feel of swing controls                       | `SWING` in `swing.ts`                                                                           |
+| Feel of controller sticks                    | `STICK` in `flick.ts`; button mapping in `gamepad.ts`                                           |
+| How easily pins fall                         | `TUNE` in `sim.ts`, `fallScale` per rack layout                                                 |
+| Rack shapes                                  | `CLASSIC_RACK` / `MEGA_RACK` in `constants.ts`                                                  |
+| Stage targets, perks, power-up odds          | `run.ts`                                                                                        |
+| Banners, scoreboard, shop                    | `hud.ts`, `index.html`, `style.css`                                                             |
+| Sparks, confetti, flames and other particles | `effects.ts`                                                                                    |
+| Classic frame/ball progression               | `classicPosition` in `scoring.ts`                                                               |
+| Saved settings and records                   | `storage.ts`                                                                                    |
+| Sounds                                       | how each sounds: `audio-synth.ts`; levels, panning, reverb, when they play: `audio.ts`          |
+| Lane artwork                                 | `paintLane` in `art.ts`                                                                         |
+| App name, colours, icons in the manifest     | `vite.config.ts` (`VitePWA({ manifest })`), `tools/icons/`                                      |
+| Install / update prompts                     | `src/pwa.ts`                                                                                    |
 
 After physics or balance changes, re-run the sims and update the numbers in `docs/PHYSICS.md` /
 `docs/NEON-RUN.md`.

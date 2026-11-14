@@ -21,7 +21,9 @@ for (const spin of [0, -0.6]) {
 console.log(`\nMega Rack (55 pins), straight balls:`);
 console.log(
   '  ' +
-    [-150, -80, -40, 0, 40, 80, 150].map((x) => `x${x}: ${fmt(repeat(Math.ceil(N / 2), () => roll(MEGA_RACK, x)))}`).join('  '),
+    [-150, -80, -40, 0, 40, 80, 150]
+      .map((x) => `x${x}: ${fmt(repeat(Math.ceil(N / 2), () => roll(MEGA_RACK, x)))}`)
+      .join('  '),
 );
 
 console.log(`\nPower-ups on a bad line (Classic from x=-70, Mega Rack from x=-150):`);

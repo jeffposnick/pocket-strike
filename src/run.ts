@@ -12,21 +12,99 @@ export interface PowerInfo {
 }
 
 export const POWERS: Record<PowerId, PowerInfo & { rarity: Rarity }> = {
-  fire: { name: 'Fireball', icon: '🔥', color: '#ff7a2b', rarity: 'common', desc: 'Plows through the rack and sets pins ablaze. Burning pins topple anything they touch.' },
-  bomb: { name: 'Bomb', icon: '💣', color: '#ff4d6d', rarity: 'common', desc: 'Explodes on first contact and blasts every pin nearby.' },
-  chain: { name: 'Chain Lightning', icon: '⚡', color: '#38f3ff', rarity: 'common', desc: 'Each falling pin zaps the nearest standing pin.' },
-  mega: { name: 'Mega Ball', icon: '🌕', color: '#ffe066', rarity: 'common', desc: 'The ball grows huge and heavy for one throw.' },
-  homing: { name: 'Homing', icon: '🎯', color: '#b47cff', rarity: 'common', desc: 'Steers the ball into the pocket, or toward the pins left standing.' },
-  rails: { name: 'Guard Rails', icon: '🛡️', color: '#7dff9b', rarity: 'common', desc: 'Bumpers for one throw. No gutter ball.' },
-  magnet: { name: 'Magnet', icon: '🧲', color: '#ff5ec4', rarity: 'common', desc: 'Pins near the ball slide into its path as it reaches the rack.' },
-  snowball: { name: 'Snowball', icon: '☃️', color: '#cfefff', rarity: 'common', desc: 'The ball grows bigger and heavier with every pin it hits.' },
-  ricochet: { name: 'Ricochet', icon: '🔁', color: '#5cffd8', rarity: 'common', desc: "The ball keeps its speed, caroms off the walls and bounces back through the rack twice." },
-  blackhole: { name: 'Black Hole', icon: '🕳️', color: '#9b6bff', rarity: 'rare', desc: 'At first contact a vortex opens and drags every pin nearby into a spinning pile.' },
-  laser: { name: 'Pin Laser', icon: '🔦', color: '#ff3b3b', rarity: 'rare', desc: "Fires a beam down the ball's line that topples every pin it crosses." },
+  fire: {
+    name: 'Fireball',
+    icon: '🔥',
+    color: '#ff7a2b',
+    rarity: 'common',
+    desc: 'Plows through the rack and sets pins ablaze. Burning pins topple anything they touch.',
+  },
+  bomb: {
+    name: 'Bomb',
+    icon: '💣',
+    color: '#ff4d6d',
+    rarity: 'common',
+    desc: 'Explodes on first contact and blasts every pin nearby.',
+  },
+  chain: {
+    name: 'Chain Lightning',
+    icon: '⚡',
+    color: '#38f3ff',
+    rarity: 'common',
+    desc: 'Each falling pin zaps the nearest standing pin.',
+  },
+  mega: {
+    name: 'Mega Ball',
+    icon: '🌕',
+    color: '#ffe066',
+    rarity: 'common',
+    desc: 'The ball grows huge and heavy for one throw.',
+  },
+  homing: {
+    name: 'Homing',
+    icon: '🎯',
+    color: '#b47cff',
+    rarity: 'common',
+    desc: 'Steers the ball into the pocket, or toward the pins left standing.',
+  },
+  rails: {
+    name: 'Guard Rails',
+    icon: '🛡️',
+    color: '#7dff9b',
+    rarity: 'common',
+    desc: 'Bumpers for one throw. No gutter ball.',
+  },
+  magnet: {
+    name: 'Magnet',
+    icon: '🧲',
+    color: '#ff5ec4',
+    rarity: 'common',
+    desc: 'Pins near the ball slide into its path as it reaches the rack.',
+  },
+  snowball: {
+    name: 'Snowball',
+    icon: '☃️',
+    color: '#cfefff',
+    rarity: 'common',
+    desc: 'The ball grows bigger and heavier with every pin it hits.',
+  },
+  ricochet: {
+    name: 'Ricochet',
+    icon: '🔁',
+    color: '#5cffd8',
+    rarity: 'common',
+    desc: 'The ball keeps its speed, caroms off the walls and bounces back through the rack twice.',
+  },
+  blackhole: {
+    name: 'Black Hole',
+    icon: '🕳️',
+    color: '#9b6bff',
+    rarity: 'rare',
+    desc: 'At first contact a vortex opens and drags every pin nearby into a spinning pile.',
+  },
+  laser: {
+    name: 'Pin Laser',
+    icon: '🔦',
+    color: '#ff3b3b',
+    rarity: 'rare',
+    desc: "Fires a beam down the ball's line that topples every pin it crosses.",
+  },
   double: { name: 'Double Down', icon: '✖️', color: '#ffd23f', rarity: 'rare', desc: "This ball's mult is doubled." },
   encore: { name: 'Encore', icon: '🔂', color: '#7df3ff', rarity: 'rare', desc: 'One extra ball this frame.' },
-  quake: { name: 'Earthquake', icon: '🌋', color: '#ff8a3d', rarity: 'legendary', desc: 'At first contact the deck shakes for over a second. Most standing pins go down.' },
-  midas: { name: 'Midas Ball', icon: '👑', color: '#ffcf33', rarity: 'legendary', desc: 'Every pin it knocks down is gold: triple chips, and +1 coin for every 5 pins.' },
+  quake: {
+    name: 'Earthquake',
+    icon: '🌋',
+    color: '#ff8a3d',
+    rarity: 'legendary',
+    desc: 'At first contact the deck shakes for over a second. Most standing pins go down.',
+  },
+  midas: {
+    name: 'Midas Ball',
+    icon: '👑',
+    color: '#ffcf33',
+    rarity: 'legendary',
+    desc: 'Every pin it knocks down is gold: triple chips, and +1 coin for every 5 pins.',
+  },
 };
 
 /** Every power-up of one rarity. */
@@ -95,10 +173,23 @@ export const PERKS: Perk[] = [
   { id: 'magpie', name: 'Magpie', icon: '🐦', desc: 'Gold pins show up more and pay double.', max: 1 },
   { id: 'lucky', name: 'Lucky Rack', icon: '🍀', desc: 'Two more special pins in every rack.', max: 3 },
   { id: 'safety', name: 'Safety Net', icon: '🥅', desc: 'Bumpers go up whenever you shoot a spare.', max: 1 },
-  { id: 'surge', name: 'Power Surge', icon: '🔋', desc: 'Start every stage with a random power-up.', rare: true, max: 2 },
+  {
+    id: 'surge',
+    name: 'Power Surge',
+    icon: '🔋',
+    desc: 'Start every stage with a random power-up.',
+    rare: true,
+    max: 2,
+  },
   { id: 'pockets', name: 'Deep Pockets', icon: '🎒', desc: 'One more power-up slot.', max: 2 },
   { id: 'laser', name: 'Laser Sight', icon: '🔦', desc: 'Your aim line reaches all the way to the pins.', max: 1 },
-  { id: 'interest', name: 'Interest', icon: '🏦', desc: 'At the end of each stage, +1 coin per 3 coins you hold.', max: 1 },
+  {
+    id: 'interest',
+    name: 'Interest',
+    icon: '🏦',
+    desc: 'At the end of each stage, +1 coin per 3 coins you hold.',
+    max: 1,
+  },
 ];
 
 export interface Stage {
@@ -245,7 +336,14 @@ export class Run {
    * `streak` counts consecutive Big Hits / Mega Strikes, including this ball. `used` is what was armed
    * for it: Midas Ball triples the chips and Double Down doubles the mult.
    */
-  points(knocked: number, tier: HitTier, spare: boolean, streak: number, specials: number, used: readonly PowerId[] = []): BallPoints {
+  points(
+    knocked: number,
+    tier: HitTier,
+    spare: boolean,
+    streak: number,
+    specials: number,
+    used: readonly PowerId[] = [],
+  ): BallPoints {
     const chips = (knocked * (2 + this.has('collector')) + specials * 10) * (used.includes('midas') ? 3 : 1);
     let mult = 1;
     if (tier === 'clear') mult += 3 + this.has('striker');

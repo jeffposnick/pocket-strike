@@ -45,12 +45,22 @@ for (const [name, d] of all) {
   }
 }
 
-ok(Object.keys(bank.bell).length === BELLS.length && Object.keys(bank.marimba).length === MARIMBAS.length, 'every note a cue plays is rendered');
+ok(
+  Object.keys(bank.bell).length === BELLS.length && Object.keys(bank.marimba).length === MARIMBAS.length,
+  'every note a cue plays is rendered',
+);
 // The roll loop wraps from its last sample to its first: the step must be no bigger than a normal one.
 const r = bank.roll;
 let maxStep = 0;
 for (let i = 1; i < r.length; i++) maxStep = Math.max(maxStep, Math.abs(r[i] - r[i - 1]));
-ok(Math.abs(r[0] - r[r.length - 1]) <= maxStep, `roll loop has no seam (${Math.abs(r[0] - r[r.length - 1]).toFixed(4)} vs max step ${maxStep.toFixed(4)})`);
+ok(
+  Math.abs(r[0] - r[r.length - 1]) <= maxStep,
+  `roll loop has no seam (${Math.abs(r[0] - r[r.length - 1]).toFixed(4)} vs max step ${maxStep.toFixed(4)})`,
+);
 
-console.log(failures ? `${failures} of ${checks} audio checks failed` : `All ${checks} audio checks passed (rendered in ${Math.round(ms)} ms)`);
+console.log(
+  failures
+    ? `${failures} of ${checks} audio checks failed`
+    : `All ${checks} audio checks passed (rendered in ${Math.round(ms)} ms)`,
+);
 if (failures) process.exit(1);

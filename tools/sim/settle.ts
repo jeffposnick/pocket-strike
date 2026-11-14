@@ -76,8 +76,14 @@ for (const [name, layout] of [
       }
     }
   }
-  check(gutterAfterContact === 0, `${name}: ball never ends up back on the lane after hitting pins (${gutterAfterContact}/${rolls})`);
-  check(maxSettleAfterContact <= 4.6, `${name}: result within 4.6 s of contact (max ${maxSettleAfterContact.toFixed(1)} s)`);
+  check(
+    gutterAfterContact === 0,
+    `${name}: ball never ends up back on the lane after hitting pins (${gutterAfterContact}/${rolls})`,
+  );
+  check(
+    maxSettleAfterContact <= 4.6,
+    `${name}: result within 4.6 s of contact (max ${maxSettleAfterContact.toFixed(1)} s)`,
+  );
   // The game freezes physics once settled; this measures how quiet piles are anyway.
   const pct = (jittering / Math.max(1, downPins)) * 100;
   check(pct < 5, `${name}: fallen pins jittering after settle ${pct.toFixed(1)}% (${jittering}/${downPins}, limit 5%)`);
