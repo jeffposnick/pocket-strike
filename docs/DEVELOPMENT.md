@@ -178,7 +178,12 @@ available target (see CLAUDE.md). Patterns in place:
   detected by polling, not `gamepadconnected`. In dialogs the controller moves real DOM focus, and a
   `pad-nav` class on the body shows the focus ring (programmatic focus after a tap wouldn't otherwise
   match `:focus-visible`); any pointer or key press removes it. Rumble (`vibrationActuator`) is a
-  progressive enhancement.
+  progressive enhancement. A focused `[data-pad-scroll]` region (the power-up guide's list) scrolls on
+  up/down until it reaches that end, then focus moves on.
+- **Power-up guide** (`#guide`, from the menu) is a modal `<dialog>` opened over the menu; Back closes it
+  and focus returns to the menu. Its list is built by `guideHtml()` in `src/hud.ts` from `POWERS`,
+  `GOLD` and `PERKS` in `src/run.ts`, so new power-ups and perks show up there automatically. The list
+  is a focusable `role="region"` that scrolls inside a card sized to `100dvh`.
 - **Install** prefers `navigator.install()` (Web Install API) and falls back to `beforeinstallprompt`.
 - **Motion:** decorative animations are opted in with `@media (prefers-reduced-motion: no-preference)`;
   ones that carry information (banners, points) swap to an opacity-only keyframe under `reduce` so they
@@ -200,7 +205,7 @@ as a fixed number and resized the Bungee display text).
 | How easily pins fall                         | `TUNE` in `sim.ts`, `fallScale` per rack layout                                                 |
 | Rack shapes                                  | `CLASSIC_RACK` / `MEGA_RACK` in `constants.ts`                                                  |
 | Stage targets, perks, power-up odds          | `run.ts`                                                                                        |
-| Banners, scoreboard, shop                    | `hud.ts`, `index.html`, `style.css`                                                             |
+| Banners, scoreboard, shop, power-up guide    | `hud.ts`, `index.html`, `style.css`                                                             |
 | Sparks, confetti, flames and other particles | `effects.ts`                                                                                    |
 | Classic frame/ball progression               | `classicPosition` in `scoring.ts`                                                               |
 | Saved settings and records                   | `storage.ts`                                                                                    |

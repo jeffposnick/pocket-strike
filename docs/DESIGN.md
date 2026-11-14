@@ -88,7 +88,7 @@ src/
   art.ts         Procedural canvas art: lane tiles, pins, ball, deck spots
   scoring.ts     Ten-pin scoring, frame/ball progression and split detection (Classic)
   run.ts         Neon Run state: stages, perks, power-ups, points, shop offers
-  hud.ts         HTML overlay: scoreboard, run bar, banners, menus, shop
+  hud.ts         HTML overlay: scoreboard, run bar, banners, menus, shop, power-up guide
   flick.ts       Flick and controller-stick throws (pure TypeScript, runs in Node)
   gamepad.ts     Game controllers (Gamepad API) and controller menu navigation
   swing.ts       Phone-swing detection (pure TypeScript, runs in Node)

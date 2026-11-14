@@ -1,8 +1,8 @@
 import { BALL_STYLES } from './art.ts';
 import type { BallStyle } from './art.ts';
 import type { Mode } from './lanes.ts';
-import { PERKS, POWERS, REROLL_PRICE, STAGES } from './run.ts';
-import type { BallPoints, Perk, Run } from './run.ts';
+import { GOLD, MYSTERY_PRICE, PERKS, POWERS, PRICES, REROLL_PRICE, STAGES, powersOf } from './run.ts';
+import type { BallPoints, Perk, PowerInfo, Rarity, Run } from './run.ts';
 import type { FrameView } from './scoring.ts';
 import { toast } from './pwa.ts';
 import { loadFlag, loadNumber, save } from './storage.ts';
@@ -77,6 +77,7 @@ export class Hud {
     this.setRackLayout(4);
     this.styleIndex = loadNumber('ps-style') % BALL_STYLES.length;
     this.bumpers = loadFlag('ps-bumpers');
+    $('guideBtn').onclick = () => this.showGuide();
   }
 
   /** Builds the rack diagram: back row across the top, head pin at the bottom. */
@@ -302,6 +303,15 @@ export class Hud {
     openDialog('menu');
   }
 
+  /** The power-up guide: every power-up, special pin and perk, opened over the menu. */
+  showGuide(): void {
+    const list = $('guideList');
+    if (!list.childElementCount) list.innerHTML = guideHtml();
+    list.scrollTop = 0;
+    openDialog('guide');
+    $('guideBack').onclick = () => closeDialog('guide');
+  }
+
   showOver(stats: GameOverStats, onAgain: () => void, onMenu: () => void): void {
     $('finalScore').textContent = String(stats.score);
     $('finalBest').textContent = stats.newBest ? 'New personal best!' : `Best: ${stats.best}`;
@@ -519,6 +529,73 @@ export class Hud {
       onMenu();
     };
   }
+}
+
+const RARITY_NOTES: Record<Rarity, string> = {
+  common: `Drop from glowing pins · 🪙 ${PRICES.common} in the shop`,
+  rare: `Shop only · 🪙 ${PRICES.rare}`,
+  legendary: `Shop only · 🪙 ${PRICES.legendary}`,
+};
+
+const RARITY_NAMES: Record<Rarity, string> = { common: 'Common', rare: 'Rare', legendary: 'Legendary' };
+
+function guideEntry(info: PowerInfo, cls: string, badge = ''): string {
+  return (
+    `<li class="power ${cls}" style="--c: ${info.color}">` +
+    `<span class="ico" aria-hidden="true">${info.icon}</span>` +
+    `<span><b>${info.name}${badge ? ` <em>${badge}</em>` : ''}</b><small>${info.desc}</small></span></li>`
+  );
+}
+
+/** The guide's contents, built from the same tables the game plays by so it can't drift from them. */
+function guideHtml(): string {
+  const section = (title: string, note: string, items: string) =>
+    `<section><h3 class="label sec">${title}</h3><p class="guideNote">${note}</p><ul class="guideItems">${items}</ul></section>`;
+  const how =
+    '<ul class="how">' +
+    '<li>Knock down a <b>glowing pin</b> to put its power-up in a slot at the bottom of the screen.</li>' +
+    '<li><b>Tap</b> a slot to arm it before you bowl (L, R, ZL, ZR on a controller). Arm several to combine them.</li>' +
+    '<li>Armed power-ups fire on your <b>next ball</b> and are used up.</li>' +
+    '<li>Spend coins in the <b>shop</b> after each cleared lane for rarer power-ups.</li>' +
+    '</ul>';
+  const rarities = (['common', 'rare', 'legendary'] as const)
+    .map((r) =>
+      section(
+        `${RARITY_NAMES[r]} power-ups`,
+        RARITY_NOTES[r],
+        powersOf(r)
+          .map((id) => guideEntry(POWERS[id], r))
+          .join(''),
+      ),
+    )
+    .join('');
+  const extras = section(
+    'Pins and prizes',
+    'Not power-ups, but worth chasing',
+    guideEntry(GOLD, 'common') +
+      guideEntry(
+        {
+          name: 'Mystery Box',
+          icon: '🎁',
+          color: '#ff3fa4',
+          desc: 'A random power-up, revealed when bought. Usually common, sometimes rare, now and then legendary.',
+        },
+        'mystery',
+        `🪙 ${MYSTERY_PRICE}`,
+      ),
+  );
+  const perks = section(
+    'Perks',
+    'Pick one after each cleared lane. They last the whole run.',
+    PERKS.map((p) =>
+      guideEntry(
+        { name: p.name, icon: p.icon, color: p.rare ? '#ffc84a' : '#9b6bff', desc: p.desc },
+        p.rare ? 'rare' : 'common',
+        [p.rare ? 'Rare' : '', p.max > 1 ? `Up to ×${p.max}` : ''].filter(Boolean).join(' · '),
+      ),
+    ).join(''),
+  );
+  return how + rarities + extras + perks;
 }
 
 function rating(score: number): string {

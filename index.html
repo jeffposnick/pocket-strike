@@ -95,6 +95,7 @@
             and ZR (LB, RB, LT, RT) arm power-ups.
           </li>
         </ul>
+        <button id="guideBtn" class="ghost guideBtn">📖 Power-up guide</button>
         <div id="menuBest"></div>
         <button id="updateBtn" class="ghost install" hidden>Update to the new version</button>
         <button id="installBtn" class="ghost install" hidden>Install app</button>
@@ -139,6 +140,15 @@
         <div id="roBest"></div>
         <button id="roAgain" class="cta" autofocus>New run</button>
         <button id="roMenu" class="ghost">Menu</button>
+      </div>
+    </dialog>
+
+    <dialog id="guide" class="overlay" aria-labelledby="guideTitle">
+      <div class="card wide guide">
+        <h2 id="guideTitle">Power-up guide</h2>
+        <p class="guideSub">Everything you can find, buy or draft in Neon Run.</p>
+        <div id="guideList" role="region" aria-labelledby="guideTitle" tabindex="0" data-pad-scroll autofocus></div>
+        <button id="guideBack" class="cta">Back</button>
       </div>
     </dialog>
 

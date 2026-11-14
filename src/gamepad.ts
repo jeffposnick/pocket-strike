@@ -154,7 +154,7 @@ export function topDialog(): HTMLDialogElement | null {
 }
 
 function focusables(dialog: HTMLElement): HTMLElement[] {
-  return [...dialog.querySelectorAll<HTMLElement>('button, input')].filter(
+  return [...dialog.querySelectorAll<HTMLElement>('button, input, [data-pad-scroll]')].filter(
     (el) => !(el as HTMLButtonElement).disabled && !el.closest('[hidden]') && el.getClientRects().length > 0,
   );
 }
@@ -162,8 +162,19 @@ function focusables(dialog: HTMLElement): HTMLElement[] {
 /**
  * Moves focus to the previous (up/left) or next (down/right) control in the dialog. Focus moved
  * this way shows the keyboard focus ring (`pad-nav` on the body), since a controller is like a keyboard.
+ * Up and down on a focused `[data-pad-scroll]` region scroll it first, until it reaches that end.
  */
 export function moveFocus(dialog: HTMLElement, dir: 'up' | 'down' | 'left' | 'right'): void {
+  const cur = document.activeElement as HTMLElement | null;
+  if (cur && dialog.contains(cur) && cur.hasAttribute('data-pad-scroll') && (dir === 'up' || dir === 'down')) {
+    const room = dir === 'up' ? cur.scrollTop : cur.scrollHeight - cur.clientHeight - cur.scrollTop;
+    if (room > 1) {
+      document.body.classList.add('pad-nav');
+      const smooth = matchMedia('(prefers-reduced-motion: no-preference)').matches;
+      cur.scrollBy({ top: (dir === 'up' ? -1 : 1) * cur.clientHeight * 0.6, behavior: smooth ? 'smooth' : 'auto' });
+      return;
+    }
+  }
   const els = focusables(dialog);
   if (!els.length) return;
   const i = els.indexOf(document.activeElement as HTMLElement);

@@ -1376,6 +1376,73 @@ body:not(.run-mode) #points {
   border-style: dashed;
 }
 
+/* ---------- Power-up guide ---------- */
+
+.guideBtn {
+  margin-top: 16px;
+}
+
+/* The card fits the screen; only the list scrolls, so the title and Back stay in view. */
+.card.guide {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+  padding-bottom: 16px;
+}
+
+#guideTitle {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 28px;
+  color: var(--cyan);
+  text-shadow: 0 0 14px rgba(56, 243, 255, 0.6);
+}
+
+.guideSub {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#guideList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -8px 14px;
+  padding: 0 8px 4px;
+  text-align: left;
+  border-radius: 12px;
+}
+
+#guideList .how {
+  margin-top: 0;
+}
+
+#guideList h3 {
+  text-align: center;
+}
+
+.guideNote {
+  margin: -4px 0 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.guideItems {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guideItems .power {
+  grid-template-columns: auto 1fr;
+}
+
 #shopNext {
   margin: 16px 0 12px;
   font-size: 12px;
