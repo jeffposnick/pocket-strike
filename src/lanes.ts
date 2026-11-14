@@ -485,11 +485,18 @@ export class Lanes extends ex.Scene {
     this.syncBallSize();
   }
 
-  /** Previews Mega Ball while it's armed. */
+  /** Puts the ball back on the approach at its normal size and fades back to the bowler. */
+  private returnBall(): void {
+    this.sim.placeBall(this.lastX);
+    this.setPhase('return', RETURN_MS);
+    this.syncBallSize();
+  }
+
+  /** Clears the last roll's powers (Mega Ball size) and previews Mega Ball while it's armed. */
   private syncBallSize(): void {
     const run = this.run;
     const megaArmed = !!run && [...run.armed].some((i) => run.inventory[i] === 'mega');
-    if (this.phase === 'aim') this.sim.powers = { ...NO_POWERS, mega: megaArmed };
+    if (this.phase === 'aim' || this.phase === 'return') this.sim.powers = { ...NO_POWERS, mega: megaArmed };
   }
 
   private endStage(): void {
@@ -518,8 +525,7 @@ export class Lanes extends ex.Scene {
       this.applySpecials();
       this.rackDrop = 0;
       this.startStage();
-      this.sim.placeBall(this.lastX);
-      this.setPhase('return', RETURN_MS);
+      this.returnBall();
     }, () => this.sfx.chime());
   }
 
@@ -1106,8 +1112,7 @@ export class Lanes extends ex.Scene {
       case 'sweep':
         this.updateSweep();
         if (this.phaseT >= this.phaseDur) {
-              this.sim.placeBall(this.lastX);
-          this.setPhase('return', RETURN_MS);
+          this.returnBall();
           this.hud.hideThrow();
         }
         break;

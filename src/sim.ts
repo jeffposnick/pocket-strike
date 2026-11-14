@@ -267,6 +267,7 @@ export class Sim {
   }
 
   placeBall(x: number): void {
+    this.growth = 1; // Snowball growth lasts one roll.
     Object.assign(this.ball, {
       x,
       y: BALL_START_Y,
