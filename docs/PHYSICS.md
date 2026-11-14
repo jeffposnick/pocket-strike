@@ -110,6 +110,13 @@ All of these are checked by `tools/sim/settle.ts` (part of `npm test`).
      - **Soft overlap correction:** resolve 60% of the overlap, with 0.4 px of slop.
      - **Freeze:** the scene stops stepping physics once a roll has settled.
    - _Result:_ jitter went from 112 pins (worst 591 px) to about 1% of pins with sub-pixel motion.
+3. **Ricochet ball rolling back forever.**
+   - _Symptom:_ a Ricochet ball that touched no pins (e.g. a miss at a nearly cleared rack) bounced
+     off the back cushion toward the bowler at full speed. The "heading back" damping and the
+     settle timeouts all waited for pin contact, so it rolled past the foul line and never settled.
+   - _Fix:_ damp any ball heading back toward the bowler beyond the deck (decays at 4/s), contact or
+     not: only a pin hit or the back cushion can reverse it. `settled()` also treats the ball as done
+     after 10 s of rolling, as a backstop.
 
 ## Things that are deliberately not realistic
 

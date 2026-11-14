@@ -349,7 +349,9 @@ export class Sim {
   settled(): boolean {
     const b = this.ball;
     // Once the ball has been among the pins for a while, only the pins matter.
-    const ballDone = !b.rolling || b.inPit || Math.hypot(b.vx, b.vy) < 15 || this.sinceContact > 2.5;
+    // The roll-time cap is a backstop so no edge case can keep the ball rolling forever.
+    const ballDone =
+      !b.rolling || b.inPit || Math.hypot(b.vx, b.vy) < 15 || this.sinceContact > 2.5 || this.rollTime > 10;
     if (!ballDone) return false;
     if (this.zaps.length || this.hole || this.quakeT > 0 || this.laserT >= 0) return false;
     if (this.rollTime > 7 || this.sinceContact > 4.5 || (b.inPit && b.pitT > 2.2)) return true;
@@ -428,8 +430,10 @@ export class Sim {
         b.vy = Math.cos(dir) * speed;
         this.events.push({ type: 'ricochet', x: b.x, y: b.y });
       }
-      if (b.vy > 0 && this.contact && b.y > DECK_Y + 200) {
-        // A ricochet heading back toward the bowler has done its work: let it roll to a stop.
+      if (b.vy > 0 && b.y > DECK_Y + 200) {
+        // A ricochet heading back toward the bowler has done its work: let it roll to a stop. Only a
+        // pin hit or the back cushion sends the ball this way, so this also catches a Ricochet ball
+        // that missed every pin and bounced off the cushion (it used to roll on forever).
         const k = Math.exp(-4 * h);
         b.vx *= k;
         b.vy *= k;

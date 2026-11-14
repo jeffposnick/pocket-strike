@@ -3,12 +3,15 @@
 //     toward the bowler (fixed by damping rebound after contact).
 //  2. Fallen pins jittering back and forth in place (fixed by static
 //     friction, sleeping pins and soft overlap correction).
+//  3. A Ricochet ball that misses every pin, bounces off the back cushion and
+//     rolls back past the foul line forever (fixed by damping any ball heading
+//     back toward the bowler, contact or not).
 //
 //   node tools/sim/settle.ts     (exits non-zero if a check fails)
 //
 // Every roll is seeded, so the checks give the same numbers on every run: a failure is a real
 // change in the physics, never bad luck. `--seed N` reruns them with other rolls.
-import { CLASSIC_RACK, DECK_Y, MEGA_RACK } from '../../src/constants.ts';
+import { CLASSIC_RACK, DECK_Y, FOUL_Y, MEGA_RACK } from '../../src/constants.ts';
 import { Sim } from '../../src/sim.ts';
 import { seeded, STEP } from './helpers.ts';
 
@@ -87,6 +90,25 @@ for (const [name, layout] of [
   // The game freezes physics once settled; this measures how quiet piles are anyway.
   const pct = (jittering / Math.max(1, downPins)) * 100;
   check(pct < 5, `${name}: fallen pins jittering after settle ${pct.toFixed(1)}% (${jittering}/${downPins}, limit 5%)`);
+}
+
+// Ricochet with nothing to hit: the back-cushion bounce sends the ball toward the bowler without any
+// pin contact. It must still roll to a stop on the deck end of the lane, not past the foul line.
+for (const x of [-120, 0, 120]) {
+  const s = new Sim(seeded(SEED), CLASSIC_RACK);
+  s.powers.ricochet = true;
+  for (const p of s.pins) p.state = 'cleared';
+  s.placeBall(x);
+  s.launch(2900, 0, 0);
+  let t = 0;
+  while (!s.settled() && t < 12) {
+    s.step(STEP);
+    t += STEP;
+  }
+  check(
+    s.settled() && t < 5 && s.ball.y < FOUL_Y,
+    `ricochet miss from x=${x}: ball stops on the lane in ${t.toFixed(1)} s (y ${s.ball.y.toFixed(0)})`,
+  );
 }
 
 process.exit(failed ? 1 : 0);
